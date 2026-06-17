@@ -4,8 +4,8 @@ import { useState } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Laptop, Briefcase, ChevronRight, CheckCircle } from "lucide-react";
 import Link from "next/link";
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import Button from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Search, Filter, X, Save, Clock, CheckCircle, AlertCircle, Laptop } from "lucide-react";
 
 type RequestStatus = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled' | 'ignored';
