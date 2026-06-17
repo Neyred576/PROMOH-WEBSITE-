@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Users, UserCheck, Settings, LogOut, Globe } from "lucide-react";
+import { LayoutDashboard, Users, UserCheck, Settings, LogOut, Globe, FileText } from "lucide-react";
 import Image from "next/image";
 
 function getCookie(name: string): string | null {
@@ -44,6 +44,7 @@ export default function AdminDashboardLayout({
 
   const navItems = [
     { href: "/admin/dashboard", icon: <LayoutDashboard className="w-5 h-5" />, label: "Control Center" },
+    { href: "/admin/dashboard/digital-requests", icon: <FileText className="w-5 h-5" />, label: "Digital Requests" },
     { href: "/admin/dashboard#customers", icon: <Users className="w-5 h-5" />, label: "Customers" },
     { href: "/admin/dashboard#providers", icon: <UserCheck className="w-5 h-5" />, label: "Providers & Approvals" },
     { href: "/admin/dashboard#categories", icon: <Settings className="w-5 h-5" />, label: "Categories" },
