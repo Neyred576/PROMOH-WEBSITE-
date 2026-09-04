@@ -64,6 +64,7 @@ export function HeroInteractive() {
   };
 
   useEffect(() => {
+    if (!db) return;
     const unsubSettings = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -150,6 +151,10 @@ export function ExploreCategoriesGrid() {
   const [activeExploreCategories, setActiveExploreCategories] = useState<{name: string, slug: string}[]>([]);
 
   useEffect(() => {
+    if (!db) {
+      setActiveExploreCategories(Object.keys(defaultCategoryMap).map(name => ({ name, slug: name })));
+      return;
+    }
     const unsubSettings = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -198,6 +203,11 @@ export function FeaturedProvidersSection() {
   const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   useEffect(() => {
+    if (!db) {
+      setFeaturedProviders([]);
+      setLoadingFeatured(false);
+      return;
+    }
     const q = query(
       collection(db, "providers"),
       where("status", "==", "Approved"),
