@@ -49,13 +49,12 @@ export default function CustomerRegisterPage() {
 
     setLoading(true);
     try {
-      // Phone check removed to prevent timeout issues
-
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
       const countryData = COUNTRIES.find(c => c.code === form.country);
-      await Promise.all([
+
+      // Create account & Firestore doc in background — do not await to prevent hanging on slow connections
+      Promise.all([
         updateProfile(cred.user, { displayName: `${form.firstName} ${form.lastName}` }),
-        sendEmailVerification(cred.user),
         setDoc(doc(db, "users", cred.user.uid), {
           firstName: form.firstName,
           lastName: form.lastName,
@@ -67,9 +66,13 @@ export default function CustomerRegisterPage() {
           emailVerified: false,
           createdAt: new Date().toISOString(),
         })
-      ]);
+      ]).catch(console.error);
 
-      router.push("/");
+      // Send verification email in background — don't block navigation
+      sendEmailVerification(cred.user).catch(() => {});
+
+      // Use router.push so auth state stays alive (no full page reload)
+      router.push("/dashboard");
     } catch (err: any) {
       const msgs: Record<string, string> = {
         "auth/email-already-in-use": "An account with this email already exists.",
@@ -78,7 +81,6 @@ export default function CustomerRegisterPage() {
         "auth/operation-not-allowed": "Email sign-up is not enabled. Please contact support.",
       };
       setError(msgs[err.code] || (err.message?.includes("timed out") ? "Request timed out. Please try again." : "Registration failed. Please try again."));
-    } finally {
       setLoading(false);
     }
   };

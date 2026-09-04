@@ -33,15 +33,23 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
 
-    // Small delay for UX
-    await new Promise(r => setTimeout(r, 400));
+    try {
+      const res = await fetch("/api/admin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
-    if (password === "Promoh@090021") {
-      // Set secure cookie valid for 8 hours
-      document.cookie = "admin_session=authenticated; path=/; max-age=28800; SameSite=Strict";
-      router.push("/admin/dashboard");
-    } else {
-      setError("Incorrect master password. Please try again.");
+      if (res.ok) {
+        // Set secure cookie valid for 8 hours
+        document.cookie = "admin_session=authenticated; path=/; max-age=28800; SameSite=Strict";
+        router.push("/admin/dashboard");
+      } else {
+        setError("Incorrect master password. Please try again.");
+        setLoading(false);
+      }
+    } catch {
+      setError("Network error. Please try again.");
       setLoading(false);
     }
   };

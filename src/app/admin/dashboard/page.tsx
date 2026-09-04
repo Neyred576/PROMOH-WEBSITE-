@@ -1,17 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { db } from "@/lib/firebase/client";
-import { collection, query, onSnapshot, doc, getDoc, updateDoc, deleteDoc, setDoc, addDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc, setDoc, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import {
   Users, Briefcase, Clock, Activity, CheckCircle, XCircle,
-  Star, Trash2, Eye, ToggleLeft, ToggleRight, ShieldCheck, AlertTriangle, Plus, LayoutDashboard, Key, Calendar, Flag, ShieldAlert, Ban
+  Star, Trash2, Eye, ToggleLeft, ToggleRight, ShieldCheck, AlertTriangle, Plus, LayoutDashboard, Key, Calendar, Flag, ShieldAlert, Ban, Wifi, WifiOff, X
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/currencies";
+
+/** Safely converts a Firestore Timestamp, ISO string, or Date to a JS timestamp (ms). */
+function toMs(val: unknown): number {
+  if (!val) return 0;
+  if (val instanceof Timestamp) return val.toMillis();
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === "string" || typeof val === "number") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  // Firestore-like plain object { seconds, nanoseconds }
+  if (typeof val === "object" && "seconds" in (val as object)) {
+    return (val as { seconds: number }).seconds * 1000;
+  }
+  return 0;
+}
+
+/** Formats any Firestore date value to a human-readable string. */
+function fmtDate(val: unknown): string {
+  const ms = toMs(val);
+  if (!ms) return "—";
+  return new Date(ms).toLocaleString();
+}
+
+interface Toast {
+  id: string;
+  type: "success" | "info" | "warning";
+  message: string;
+}
 
 interface Provider {
   id: string;
@@ -67,58 +96,113 @@ export default function AdminDashboardPage() {
   const [announcementMsg, setAnnouncementMsg] = useState("");
   const [announcementActive, setAnnouncementActive] = useState(false);
 
-  // Real-time listeners for stats
+  // Real-time toasts
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Track previous counts to detect NEW arrivals (skip first snapshot)
+  const prevProviderCount = useRef<number | null>(null);
+  const prevCustomerCount = useRef<number | null>(null);
+  const prevBookingCount = useRef<number | null>(null);
+
+  const pushToast = useCallback((message: string, type: Toast["type"] = "info") => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Real-time listeners for stats + toast notifications on new data
   useEffect(() => {
     // Listen to all users
-    const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
-      let customersCount = 0;
-      const customersList: Customer[] = [];
-      snap.docs.forEach(d => { 
-        if (d.data().role === "customer") {
-          customersCount++;
-          customersList.push({ id: d.id, ...d.data() } as Customer);
+    const unsubUsers = onSnapshot(
+      collection(db, "users"),
+      (snap) => {
+        setIsOnline(true);
+        let customersCount = 0;
+        const customersList: Customer[] = [];
+        snap.docs.forEach(d => {
+          if (d.data().role === "customer") {
+            customersCount++;
+            customersList.push({ id: d.id, ...d.data() } as Customer);
+          }
+        });
+        // Toast when a new customer joins (skip initial load)
+        if (prevCustomerCount.current !== null && customersCount > prevCustomerCount.current) {
+          pushToast(`🙋 New customer just joined the platform!`, "info");
         }
-      });
-      setStats(prev => ({ ...prev, customers: customersCount }));
-      setAllCustomers(customersList);
-      setLoadingCustomers(false);
-    });
+        prevCustomerCount.current = customersCount;
+        setStats(prev => ({ ...prev, customers: customersCount }));
+        setAllCustomers(customersList);
+        setLoadingCustomers(false);
+      },
+      () => setIsOnline(false)
+    );
 
     // Listen to providers
-    const unsubProviders = onSnapshot(collection(db, "providers"), (snap) => {
-      const providers = snap.docs.map(d => ({ id: d.id, ...d.data() } as Provider));
-      const pending = providers.filter(p => p.status === "Pending");
-      setStats(prev => ({ ...prev, providers: providers.length, pending: pending.length }));
-      setPendingProviders(pending);
-      setAllProviders(providers);
-      setLoadingProviders(false);
-    });
+    const unsubProviders = onSnapshot(
+      collection(db, "providers"),
+      (snap) => {
+        setIsOnline(true);
+        const providers = snap.docs.map(d => ({ id: d.id, ...d.data() } as Provider));
+        const pending = providers.filter(p => p.status === "Pending");
+        // Toast when a new provider applies (skip initial load)
+        if (prevProviderCount.current !== null && providers.length > prevProviderCount.current) {
+          pushToast(`🏢 New provider just applied — review pending!`, "warning");
+        }
+        prevProviderCount.current = providers.length;
+        setStats(prev => ({ ...prev, providers: providers.length, pending: pending.length }));
+        setPendingProviders(pending);
+        setAllProviders(providers);
+        setLoadingProviders(false);
+      },
+      () => setIsOnline(false)
+    );
 
     // Listen to all bookings
-    const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
-      const bookings: any[] = [];
-      let revenue = 0;
-      snap.docs.forEach(d => {
-        const data = d.data();
-        bookings.push({ id: d.id, ...data });
-        if (data.status === "completed") {
-          revenue += Number(data.amount || 0);
+    const unsubBookings = onSnapshot(
+      collection(db, "bookings"),
+      (snap) => {
+        setIsOnline(true);
+        const bookings: any[] = [];
+        let revenue = 0;
+        snap.docs.forEach(d => {
+          const data = d.data();
+          bookings.push({ id: d.id, ...data });
+          if (data.status === "completed") {
+            revenue += Number(data.amount || 0);
+          }
+        });
+        // Sort using the safe toMs() helper — handles both Timestamps and strings
+        bookings.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+        // Toast on new booking (skip initial load)
+        if (prevBookingCount.current !== null && bookings.length > prevBookingCount.current) {
+          pushToast(`📅 New booking just came in!`, "success");
         }
-      });
-      bookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setAllBookings(bookings);
-      setTotalRevenue(revenue);
-    });
+        prevBookingCount.current = bookings.length;
+        setAllBookings(bookings);
+        setTotalRevenue(revenue);
+      },
+      () => setIsOnline(false)
+    );
 
     // Listen to all reports
-    const unsubReports = onSnapshot(collection(db, "reports"), (snap) => {
-      const reports = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-      reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setAllReports(reports);
-    });
+    const unsubReports = onSnapshot(
+      collection(db, "reports"),
+      (snap) => {
+        setIsOnline(true);
+        const reports = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        reports.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+        setAllReports(reports);
+      },
+      () => setIsOnline(false)
+    );
 
     return () => { unsubUsers(); unsubProviders(); unsubBookings(); unsubReports(); };
-  }, []);
+  }, [pushToast]);
 
   useEffect(() => {
     // Listen for real-time platform settings changes
@@ -176,7 +260,7 @@ export default function AdminDashboardPage() {
         message: "Your provider account has been verified and approved. You are now live on the platform.",
         link: "/provider/dashboard",
         read: false,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
 
       showMsg("✅ Provider approved and verified!");
@@ -195,7 +279,7 @@ export default function AdminDashboardPage() {
         message: "Your provider account application was rejected. Please contact support for details.",
         link: "/provider/dashboard",
         read: false,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
 
       showMsg("Provider rejected.");
@@ -337,9 +421,52 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto pb-20">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-secondary-900">Admin Control Center</h1>
-        <p className="text-secondary-500 mt-1">Real-time platform management and oversight.</p>
+      {/* Toast Notifications */}
+      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none" aria-live="polite">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium max-w-sm animate-in slide-in-from-right-4 fade-in ${
+              t.type === "success" ? "bg-green-50 border-green-200 text-green-900" :
+              t.type === "warning" ? "bg-amber-50 border-amber-200 text-amber-900" :
+              "bg-blue-50 border-blue-200 text-blue-900"
+            }`}
+          >
+            <span className="flex-1">{t.message}</span>
+            <button onClick={() => dismissToast(t.id)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-secondary-900">Admin Control Center</h1>
+          <p className="text-secondary-500 mt-1">Real-time platform management and oversight.</p>
+        </div>
+        {/* Live Connection Indicator */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+          isOnline
+            ? "bg-green-50 border-green-200 text-green-700"
+            : "bg-red-50 border-red-200 text-red-700"
+        }`}>
+          {isOnline ? (
+            <>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <Wifi className="w-3.5 h-3.5" />
+              Live
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3.5 h-3.5" />
+              Offline
+            </>
+          )}
+        </div>
       </div>
 
       {/* Flash Message */}
@@ -473,9 +600,9 @@ export default function AdminDashboardPage() {
             <CardContent>
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                 {[
-                  ...allProviders.map(p => ({ type: "provider", data: p as any, time: new Date(p.createdAt).getTime() })),
-                  ...allCustomers.map(c => ({ type: "customer", data: c as any, time: new Date(c.createdAt).getTime() })),
-                  ...allBookings.map(b => ({ type: "booking", data: b as any, time: new Date(b.createdAt).getTime() }))
+                  ...allProviders.map(p => ({ type: "provider", data: p as any, time: toMs(p.createdAt) })),
+                  ...allCustomers.map(c => ({ type: "customer", data: c as any, time: toMs(c.createdAt) })),
+                  ...allBookings.map(b => ({ type: "booking", data: b as any, time: toMs(b.createdAt) }))
                 ]
                 .sort((a, b) => b.time - a.time)
                 .slice(0, 10)
@@ -501,7 +628,7 @@ export default function AdminDashboardPage() {
                          act.type === 'customer' ? `${act.data.firstName} ${act.data.lastName} joined.` :
                          `${act.data.customerName} booked a service.`}
                       </p>
-                      <p className="text-xs text-secondary-400 mt-1">{new Date(act.time).toLocaleString()}</p>
+                      <p className="text-xs text-secondary-400 mt-1">{act.time ? new Date(act.time).toLocaleString() : "—"}</p>
                     </div>
                   </div>
                 ))}
@@ -612,7 +739,7 @@ export default function AdminDashboardPage() {
                           <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold uppercase">Resolved: {r.resolution}</span>
                         )}
                       </div>
-                      <span className="text-xs text-secondary-500">{new Date(r.createdAt).toLocaleString()}</span>
+                      <span className="text-xs text-secondary-500">{fmtDate(r.createdAt)}</span>
                     </div>
                     <div className="ml-7 space-y-2">
                       <p className="text-sm text-secondary-700"><span className="font-semibold">Reason:</span> {r.reason}</p>
@@ -745,7 +872,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="text-xs text-secondary-400">{c.email} {c.phone && `· ${c.phone}`}</div>
                     </div>
-                    <div className="text-xs text-secondary-400 hidden sm:block">{new Date(c.createdAt).toLocaleDateString()}</div>
+                    <div className="text-xs text-secondary-400 hidden sm:block">{toMs(c.createdAt) ? new Date(toMs(c.createdAt)).toLocaleDateString() : "—"}</div>
                     
                     <div className="flex gap-1 shrink-0">
                       <Button size="sm" variant="ghost" className={`${c.banned ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-500 hover:text-red-700 hover:bg-red-50"}`}

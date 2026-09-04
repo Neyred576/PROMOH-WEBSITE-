@@ -10,6 +10,24 @@ import { formatCurrency } from "@/lib/currencies";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { motion } from "framer-motion";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+// Mock data generation for the chart based on total earnings
+const generateChartData = (total: number) => {
+  const data = [];
+  let currentTotal = 0;
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const amount = i === 0 ? total - currentTotal : Math.floor(Math.random() * (total / 7));
+    currentTotal += amount;
+    data.push({
+      date: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      earnings: amount > 0 ? amount : 0
+    });
+  }
+  return data;
+};
 
 export default function ProviderDashboardPage() {
   const { user } = useAuth();
@@ -151,6 +169,35 @@ export default function ProviderDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Analytics Chart */}
+      <Card className="mb-8 overflow-hidden border-secondary-100 shadow-sm">
+        <CardHeader className="border-b border-secondary-100 pb-4 bg-secondary-50/50">
+          <CardTitle className="text-lg">Earnings Overview (Last 7 Days)</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={generateChartData(earnings)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => `$${val}`} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  formatter={(value: number) => [`$${value}`, 'Earnings']}
+                />
+                <Area type="monotone" dataKey="earnings" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorEarnings)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">

@@ -225,7 +225,19 @@ export function FeaturedProvidersSection() {
     return (
       <div className="grid md:grid-cols-3 gap-8">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-2xl border border-secondary-200 h-80 bg-secondary-100 animate-pulse" />
+          <div key={i} className="rounded-2xl border border-secondary-100 h-[380px] bg-white overflow-hidden shadow-sm relative">
+            <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent z-10" />
+            <div className="h-44 bg-secondary-100 animate-pulse" />
+            <div className="p-6">
+              <div className="h-6 bg-secondary-200 rounded-md w-2/3 mb-4 animate-pulse" />
+              <div className="h-4 bg-secondary-100 rounded-md w-full mb-2 animate-pulse" />
+              <div className="h-4 bg-secondary-100 rounded-md w-4/5 mb-6 animate-pulse" />
+              <div className="flex justify-between items-center pt-4 border-t border-secondary-50">
+                <div className="h-4 bg-secondary-100 rounded-md w-1/3 animate-pulse" />
+                <div className="h-6 bg-secondary-200 rounded-md w-1/4 animate-pulse" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -249,8 +261,9 @@ export function FeaturedProvidersSection() {
           viewport={{ once: true }} transition={{ delay: i * 0.1 }}
         >
           <Link href={`/provider/${provider.id}`}>
-            <Card className="overflow-hidden group cursor-pointer hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-secondary-100 bg-white/90 backdrop-blur-md">
-              <div className="h-44 bg-gradient-to-br from-primary-100 to-indigo-100 relative flex items-center justify-center overflow-hidden">
+            <Card className="overflow-hidden group cursor-pointer hover:shadow-[0_20px_50px_rgba(37,99,235,0.15)] hover:-translate-y-2 transition-all duration-500 border-secondary-100 hover:border-primary-200 bg-white/90 backdrop-blur-md relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary-500/0 via-transparent to-primary-500/0 group-hover:from-primary-500/5 group-hover:to-indigo-500/5 transition-colors duration-500 pointer-events-none z-0" />
+              <div className="h-44 bg-gradient-to-br from-primary-100 to-indigo-100 relative flex items-center justify-center overflow-hidden z-10">
                 <div className="absolute inset-0 bg-primary-600/10 group-hover:bg-transparent transition-colors z-10" />
                 {provider.photoURL ? (
                   <Image src={provider.photoURL} alt={provider.businessName} fill className="object-cover group-hover:scale-110 transition-transform duration-700" />

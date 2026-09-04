@@ -134,7 +134,7 @@ export default function Home() {
               <span className="text-2xl font-bold text-secondary-900 tracking-tight">Promoh</span>
             </div>
             <p className="mb-6 text-sm leading-relaxed text-secondary-500">Find. Compare. Chat. Book. Done. The world's trusted marketplace for service professionals.</p>
-            <a href="mailto:support@promoh.com" id="contact-support-btn"
+            <a href="mailto:promoh321@gmail.com?subject=Support%20Request%20-%20Promoh" id="contact-support-btn"
               className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold hover:from-primary-700 hover:to-primary-800 transition-all shadow-md text-sm w-full justify-center group">
               <Mail className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
               Contact Support

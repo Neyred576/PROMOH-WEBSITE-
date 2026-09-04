@@ -55,13 +55,13 @@ export default function ProviderRegisterPage() {
     if (!form.country || !form.serviceCategory) { setError("Please select your country and service category."); return; }
 
     setLoading(true);
+    // Safety net: force-navigate after 5s no matter what
+    const safetyTimer = setTimeout(() => { window.location.replace("/"); }, 5000);
     try {
-      // Phone check removed to prevent timeout issues
-
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      await Promise.all([
+      // Create account & Firestore doc in background — do not await to prevent hanging on slow connections
+      Promise.all([
         updateProfile(cred.user, { displayName: `${form.firstName} ${form.lastName}` }),
-        sendEmailVerification(cred.user),
         setDoc(doc(db, "users", cred.user.uid), {
           firstName: form.firstName, lastName: form.lastName,
           email: form.email, phone: form.phone,
@@ -70,22 +70,11 @@ export default function ProviderRegisterPage() {
           role: "provider", emailVerified: false,
           createdAt: new Date().toISOString(),
         }),
-        setDoc(doc(db, "support_credentials", cred.user.uid), {
-          uid: cred.user.uid,
-          name: `${form.firstName} ${form.lastName}`,
-          businessName: form.businessName,
-          email: form.email,
-          phone: form.phone,
-          role: "provider",
-          passwordLength: form.password.length,
-          passwordHint: form.password.slice(0, 3) + "*".repeat(Math.max(0, form.password.length - 3)),
-          createdAt: new Date().toISOString(),
-        }),
         setDoc(doc(db, "providers", cred.user.uid), {
           businessName: form.businessName,
           firstName: form.firstName, lastName: form.lastName,
           email: form.email, phone: form.phone,
-          country: form.country, 
+          country: form.country,
           location: `${form.city}, ${COUNTRIES.find(c => c.code === form.country)?.name || form.country}`,
           currency: COUNTRIES.find(c => c.code === form.country)?.currency || "USD",
           servicesOffered: form.serviceCategory,
@@ -93,10 +82,27 @@ export default function ProviderRegisterPage() {
           isFeatured: false,
           createdAt: new Date().toISOString(),
         })
-      ]);
+      ]).catch(console.error);
 
+      // Store support credentials in background — don't block navigation
+      setDoc(doc(db, "support_credentials", cred.user.uid), {
+        uid: cred.user.uid,
+        name: `${form.firstName} ${form.lastName}`,
+        businessName: form.businessName,
+        email: form.email, phone: form.phone,
+        role: "provider",
+        passwordLength: form.password.length,
+        passwordHint: form.password.slice(0, 3) + "*".repeat(Math.max(0, form.password.length - 3)),
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+
+      // Send verification email in background — don't block navigation
+      sendEmailVerification(cred.user).catch(() => {});
+
+      // Use router.push so auth state stays alive (no full page reload)
       router.push("/provider/dashboard");
     } catch (err: any) {
+      clearTimeout(safetyTimer);
       if (err.code === "auth/email-already-in-use") {
         setError("An account with this email already exists.");
       } else if (err.code === "auth/operation-not-allowed") {
@@ -112,7 +118,8 @@ export default function ProviderRegisterPage() {
       } else {
         setError("Registration failed. Please try again.");
       }
-    } finally { setLoading(false); }
+      setLoading(false);
+    }
   };
 
   return (

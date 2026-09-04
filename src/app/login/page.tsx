@@ -22,7 +22,15 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // Redirect already-authenticated users away from the login page
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === "admin") window.location.href = "/admin/dashboard";
+      else window.location.href = "/";
+    }
+  }, [user, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,12 +42,12 @@ export default function LoginPage() {
         const userDoc = await getDoc(doc(db, "users", cred.user.uid));
         const role = userDoc.exists() ? userDoc.data().role : "customer";
         if (role === "admin") {
-          router.push("/admin/dashboard");
+          window.location.href = "/admin/dashboard";
         } else {
-          router.push("/");
+          window.location.href = "/";
         }
       } catch {
-        router.push("/");
+        window.location.href = "/";
       }
     } catch (err: any) {
       const msgs: Record<string, string> = {

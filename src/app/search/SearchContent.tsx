@@ -20,6 +20,13 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import dynamic from "next/dynamic";
+import { onSnapshot } from "firebase/firestore";
+
+const ProviderMap = dynamic(() => import("@/components/search/ProviderMap"), {
+  ssr: false,
+  loading: () => <div className="h-[600px] w-full bg-secondary-100 animate-pulse rounded-2xl" />
+});
 
 interface Provider {
   id: string;
@@ -71,6 +78,20 @@ export default function SearchContent() {
   const [loading, setLoading] = useState(true);
   const [savedProviders, setSavedProviders] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [dynamicCategories, setDynamicCategories] = useState<{name: string, slug: string}[]>([]);
+
+  // Load real-time categories from settings
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().exploreCategories) {
+        setDynamicCategories([{name: "All", slug: ""}, ...docSnap.data().exploreCategories]);
+      } else {
+        setDynamicCategories(CATEGORIES.map(c => ({ name: c.name, slug: c.slug })));
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Load saved providers for the current user
   useEffect(() => {
@@ -204,6 +225,9 @@ export default function SearchContent() {
               <SlidersHorizontal className="w-4 h-4" /> Filters
               {activeFilters && <span className="w-2 h-2 rounded-full bg-primary-600" />}
             </Button>
+            <Button variant="outline" className={`h-12 gap-2 ${showMap ? "border-primary-500 text-primary-700 bg-primary-50" : ""}`} onClick={() => setShowMap(!showMap)}>
+              <MapPin className="w-4 h-4" /> {showMap ? "List View" : "Map View"}
+            </Button>
           </div>
 
           <AnimatePresence>
@@ -261,14 +285,17 @@ export default function SearchContent() {
           <aside className="hidden lg:block w-56 shrink-0">
             <div className="bg-white rounded-2xl border border-secondary-200 p-4 sticky top-48 shadow-sm">
               <h3 className="font-bold text-secondary-900 mb-4 text-sm uppercase tracking-wider">Categories</h3>
-              <div className="space-y-1">
-                {CATEGORIES.map(cat => (
+              <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {dynamicCategories.map(cat => {
+                  const origCat = CATEGORIES.find(c => c.slug === cat.slug);
+                  return (
                   <button key={cat.slug} onClick={() => handleCategoryClick(cat.slug)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${selectedCategory === cat.slug ? "bg-primary-50 text-primary-700 border border-primary-200" : "hover:bg-secondary-50 text-secondary-700"}`}>
-                    {cat.icon && <span className={selectedCategory === cat.slug ? "text-primary-600" : "text-secondary-400"}>{cat.icon}</span>}
+                    {origCat?.icon && <span className={selectedCategory === cat.slug ? "text-primary-600" : "text-secondary-400"}>{origCat.icon}</span>}
                     {cat.name}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               {user && (
                 <div className="mt-4 pt-4 border-t border-secondary-100">
@@ -308,6 +335,10 @@ export default function SearchContent() {
                 <Button className="mt-6" onClick={() => { setSearchQuery(""); setLocationQuery(""); }}>
                   Clear Search
                 </Button>
+              </div>
+            ) : showMap ? (
+              <div className="h-[700px] w-full relative z-0">
+                <ProviderMap providers={providers} />
               </div>
             ) : (
               <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">

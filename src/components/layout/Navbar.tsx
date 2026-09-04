@@ -15,16 +15,17 @@ export default function Navbar() {
   const handleSignOut = async () => { await signOut(); };
 
   return (
-    <nav className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Promoh Logo" width={40} height={40} className="w-auto h-10 object-contain" />
-          <span className="text-2xl font-bold text-primary-600 tracking-tight hidden sm:block">Promoh</span>
+    <nav className="border-b border-white/40 bg-white/75 backdrop-blur-2xl sticky top-0 z-50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300">
+      <div className="absolute inset-0 bg-gradient-to-r from-primary-50/50 via-transparent to-indigo-50/50 pointer-events-none" />
+      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between relative z-10">
+        <Link href="/" className="flex items-center gap-2 group">
+          <Image src="/logo.png" alt="Promoh Logo" width={40} height={40} className="w-auto h-10 object-contain group-hover:scale-105 transition-transform duration-300" />
+          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-indigo-600 tracking-tight hidden sm:block">Promoh</span>
         </Link>
-        <div className="hidden md:flex items-center gap-6 font-medium text-sm">
-          <Link href="/search" className="hover:text-primary-600 transition-colors">Find Professionals</Link>
-          <Link href="/online-jobs" className="hover:text-primary-600 transition-colors">Online Jobs</Link>
-          <Link href="/register/provider" className="hover:text-primary-600 transition-colors">Become a Provider</Link>
+        <div className="hidden md:flex items-center gap-6 font-semibold text-sm text-secondary-600">
+          <Link href="/search" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Find Professionals</Link>
+          <Link href="/online-jobs" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Online Jobs</Link>
+          <Link href="/register/provider" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Become a Provider</Link>
           {user ? (
             <>
               <Link href="/chat">
