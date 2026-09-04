@@ -23,6 +23,7 @@ export default function Navbar() {
         </Link>
         <div className="hidden md:flex items-center gap-6 font-medium text-sm">
           <Link href="/search" className="hover:text-primary-600 transition-colors">Find Professionals</Link>
+          <Link href="/online-jobs" className="hover:text-primary-600 transition-colors">Online Jobs</Link>
           <Link href="/register/provider" className="hover:text-primary-600 transition-colors">Become a Provider</Link>
           {user ? (
             <>
@@ -51,6 +52,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="md:hidden bg-white border-t px-4 py-4 space-y-3">
           <Link href="/search" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Find Professionals</Link>
+          <Link href="/online-jobs" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Online Jobs</Link>
           <Link href="/provider/register" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Become a Provider</Link>
           {user ? (
             <Button variant="outline" className="w-full" onClick={handleSignOut}>Log Out</Button>

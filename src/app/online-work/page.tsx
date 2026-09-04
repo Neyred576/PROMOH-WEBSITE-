@@ -88,13 +88,13 @@ export default function OnlineWorkPage() {
           <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Request Received!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Job Posted Successfully!</h2>
           <p className="text-gray-600 mb-8">
-            Thank you for your request. Our concierge team will review your requirements and reach out to you shortly with the best available providers.
+            Your request is now live on the Online Jobs board. Providers will review your requirements and reach out to you directly.
           </p>
           <div className="space-y-3">
-            <Link href="/dashboard" className="block">
-              <Button variant="primary" className="w-full">Go to Dashboard</Button>
+            <Link href="/online-jobs" className="block">
+              <Button variant="primary" className="w-full">View Job Board</Button>
             </Link>
             <Link href="/" className="block">
               <Button variant="outline" className="w-full">Return Home</Button>
@@ -116,7 +116,7 @@ export default function OnlineWorkPage() {
             Need Online Work Done?
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Tell us what you need. Our concierge team will manually match you with the perfect digital professional to get the job done right.
+            Tell us what you need. Post your task to our public job board and let talented digital professionals come to you.
           </p>
         </div>
 
@@ -218,11 +218,11 @@ export default function OnlineWorkPage() {
                 className="w-full flex items-center justify-center gap-2"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting Request..." : "Submit Request to Concierge"}
+                {isSubmitting ? "Posting Job..." : "Post Job to Public Board"}
                 {!isSubmitting && <ChevronRight className="w-5 h-5" />}
               </Button>
               <p className="text-xs text-center text-gray-500 mt-4">
-                By submitting this request, our team will manually review your needs and connect you with the right talent. No automated bidding.
+                By submitting this request, your job will be posted publicly. Logged-in providers will be able to view your contact details to reach out.
               </p>
             </div>
           </form>

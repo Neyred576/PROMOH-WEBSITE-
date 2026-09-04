@@ -12,20 +12,46 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase only if it hasn't been initialized already
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-export const auth = getAuth(app);
-
-let firestoreDb;
-try {
-  firestoreDb = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
-  });
-} catch (error) {
-  firestoreDb = getFirestore(app);
+let app;
+if (getApps().length > 0) {
+  app = getApp();
+} else if (firebaseConfig.apiKey) {
+  try {
+    app = initializeApp(firebaseConfig);
+  } catch (e) {
+    console.error("Firebase app initialization failed", e);
+  }
 }
-export const db = firestoreDb;
 
-export const storage = getStorage(app);
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+
+if (app) {
+  try {
+    auth = getAuth(app);
+  } catch (e) {
+    console.error("Firebase auth initialization failed", e);
+  }
+
+  try {
+    db = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+    });
+  } catch (error) {
+    try {
+      db = getFirestore(app);
+    } catch (e) {
+      console.error("Firebase firestore initialization failed", e);
+    }
+  }
+
+  try {
+    storage = getStorage(app);
+  } catch (e) {
+    console.error("Firebase storage initialization failed", e);
+  }
+}
+
+export { auth, db, storage };
 export default app;
