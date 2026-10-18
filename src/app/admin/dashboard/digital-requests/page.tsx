@@ -318,7 +318,7 @@ export default function DigitalRequestsAdmin() {
               <Button variant="outline" onClick={closeRequestModal} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button variant="primary" onClick={saveRequestUpdates} disabled={isSaving} className="flex items-center gap-2">
+              <Button variant="default" onClick={saveRequestUpdates} disabled={isSaving} className="flex items-center gap-2">
                 <Save className="w-4 h-4" />
                 {isSaving ? "Saving..." : "Save Changes"}
               </Button>

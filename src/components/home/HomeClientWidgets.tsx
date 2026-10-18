@@ -9,7 +9,7 @@ import { Search, MapPin, ShieldCheck, Star, ArrowRight, AlertTriangle, Zap, Wren
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase/client";
+import { getDb } from "@/lib/firebase/client";
 import { collection, query, where, limit, doc, onSnapshot } from "firebase/firestore";
 
 interface FeaturedProvider {
@@ -64,7 +64,7 @@ export function HeroInteractive() {
   };
 
   useEffect(() => {
-    if (!db) return;
+    const db = getDb();
     const unsubSettings = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -151,10 +151,7 @@ export function ExploreCategoriesGrid() {
   const [activeExploreCategories, setActiveExploreCategories] = useState<{name: string, slug: string}[]>([]);
 
   useEffect(() => {
-    if (!db) {
-      setActiveExploreCategories(Object.keys(defaultCategoryMap).map(name => ({ name, slug: name })));
-      return;
-    }
+    const db = getDb();
     const unsubSettings = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -203,11 +200,7 @@ export function FeaturedProvidersSection() {
   const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   useEffect(() => {
-    if (!db) {
-      setFeaturedProviders([]);
-      setLoadingFeatured(false);
-      return;
-    }
+    const db = getDb();
     const q = query(
       collection(db, "providers"),
       where("status", "==", "Approved"),

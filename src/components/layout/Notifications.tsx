@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase/client";
+import { getDb } from "@/lib/firebase/client";
 import {
   collection, query, where, onSnapshot, orderBy,
   updateDoc, deleteDoc, doc, writeBatch, limit
@@ -34,7 +34,7 @@ export default function Notifications() {
 
   useEffect(() => {
     if (!user) return;
-
+    const db = getDb();
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
@@ -52,6 +52,7 @@ export default function Notifications() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAllRead = async () => {
+    const db = getDb();
     const batch = writeBatch(db);
     notifications.forEach(n => {
       if (!n.read) batch.update(doc(db, "notifications", n.id), { read: true });
@@ -60,7 +61,7 @@ export default function Notifications() {
   };
 
   const markRead = (id: string) => {
-    updateDoc(doc(db, "notifications", id), { read: true });
+    updateDoc(doc(getDb(), "notifications", id), { read: true });
   };
 
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
@@ -68,7 +69,7 @@ export default function Notifications() {
     e.stopPropagation();
     setDeletingId(id);
     try {
-      await deleteDoc(doc(db, "notifications", id));
+      await deleteDoc(doc(getDb(), "notifications", id));
     } finally {
       setDeletingId(null);
     }

@@ -17,11 +17,21 @@ import Navbar from "@/components/layout/Navbar";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
+interface ProviderServiceItem {
+  id?: string;
+  title: string;
+  price?: number;
+  duration?: string;
+  description?: string;
+  pricingType?: "fixed" | "hourly";
+}
+
 interface ProviderData {
   businessName: string;
   firstName: string;
   lastName: string;
   servicesOffered: string;
+  services?: ProviderServiceItem[];
   hourlyRate: string;
   location: string;
   photoURL?: string;
@@ -46,6 +56,7 @@ export default function NewBookingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const providerId = searchParams.get("provider") || "";
+  const initialService = searchParams.get("service") || "";
   const { user } = useAuth();
 
   const [provider, setProvider] = useState<ProviderData | null>(null);
@@ -53,7 +64,7 @@ export default function NewBookingContent() {
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [selectedService, setSelectedService] = useState("");
+  const [selectedService, setSelectedService] = useState(initialService);
   const [notes, setNotes] = useState("");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,16 +73,44 @@ export default function NewBookingContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const serviceFromParam = searchParams.get("service");
+    if (serviceFromParam) {
+      setSelectedService(serviceFromParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!providerId) { setLoadingProvider(false); return; }
     getDoc(doc(db, "providers", providerId)).then(snap => {
-      if (snap.exists()) setProvider(snap.data() as ProviderData);
+      if (snap.exists()) {
+        const data = snap.data() as ProviderData;
+        setProvider(data);
+        if (!selectedService) {
+          if (data.services && data.services.length > 0) {
+            setSelectedService(data.services[0].title);
+          } else if (data.servicesOffered) {
+            setSelectedService(data.servicesOffered.split(",")[0].trim());
+          }
+        }
+      }
       setLoadingProvider(false);
     });
   }, [providerId]);
 
-  const services = provider?.servicesOffered?.split(",").map(s => s.trim()).filter(Boolean) || [];
+  const structuredServices = (provider?.services || []).map(s => s.title);
+  const commaServices = provider?.servicesOffered?.split(",").map(s => s.trim()).filter(Boolean) || [];
+  const services = Array.from(new Set([...structuredServices, ...commaServices]));
+
+  const matchedService = provider?.services?.find(
+    s => s.title.toLowerCase() === selectedService.toLowerCase()
+  );
+
   const today = new Date().toISOString().split("T")[0];
-  const estimatedCost = provider?.hourlyRate ? `$${provider.hourlyRate}/hr` : "TBD";
+  const estimatedCost = matchedService
+    ? `$${matchedService.price}${matchedService.pricingType === "hourly" ? "/hr" : " (fixed)"}`
+    : provider?.hourlyRate
+    ? `$${provider.hourlyRate}/hr`
+    : "TBD";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,12 +127,14 @@ export default function NewBookingContent() {
         providerId,
         providerName: provider?.businessName || `${provider?.firstName} ${provider?.lastName}`,
         service: selectedService || provider?.servicesOffered || "General Service",
+        servicePrice: matchedService?.price || null,
+        pricingType: matchedService?.pricingType || "hourly",
         date,
         time,
         notes,
         address,
         status: "pending",
-        estimatedRate: provider?.hourlyRate || "0",
+        estimatedRate: matchedService ? String(matchedService.price) : (provider?.hourlyRate || "0"),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -102,7 +143,7 @@ export default function NewBookingContent() {
       await addDoc(collection(db, "notifications"), {
         userId: providerId,
         title: "📅 New Booking Request",
-        message: `${user.displayName || "A customer"} has requested a booking for ${date} at ${time}.`,
+        message: `${user.displayName || "A customer"} has requested a booking for ${selectedService || "service"} on ${date} at ${time}.`,
         link: "/provider/dashboard",
         type: "booking_new",
         read: false,
@@ -191,22 +232,42 @@ export default function NewBookingContent() {
                   )}
 
                   {/* Service Selection */}
-                  {services.length > 1 && (
+                  {services.length > 0 && (
                     <div>
                       <label className="text-sm font-semibold block mb-2 text-secondary-700">
-                        <FileText className="w-4 h-4 inline mr-1.5 text-primary-500" />Select Service
+                        <FileText className="w-4 h-4 inline mr-1.5 text-primary-500" />Selected Service
                       </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {services.map(svc => (
-                          <button
-                            key={svc}
-                            type="button"
-                            onClick={() => setSelectedService(svc)}
-                            className={`px-4 py-2.5 rounded-xl text-sm font-medium border text-left transition-all ${selectedService === svc ? "bg-primary-50 border-primary-500 text-primary-700" : "border-secondary-200 hover:border-primary-300 text-secondary-700 bg-white"}`}
-                          >
-                            {svc}
-                          </button>
-                        ))}
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {services.map(svc => {
+                          const svcItem = provider?.services?.find(s => s.title.toLowerCase() === svc.toLowerCase());
+                          const isSelected = selectedService.toLowerCase() === svc.toLowerCase();
+                          return (
+                            <button
+                              key={svc}
+                              type="button"
+                              onClick={() => setSelectedService(svc)}
+                              className={`p-3 rounded-xl text-sm font-medium border text-left transition-all flex items-center justify-between gap-2 ${
+                                isSelected
+                                  ? "bg-primary-50 border-primary-500 text-primary-800 ring-2 ring-primary-500/20 shadow-sm"
+                                  : "border-secondary-200 hover:border-primary-300 text-secondary-700 bg-white"
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <p className="font-semibold truncate">{svc}</p>
+                                {svcItem?.duration && (
+                                  <p className="text-xs text-secondary-400">⏱ {svcItem.duration}</p>
+                                )}
+                              </div>
+                              {svcItem?.price ? (
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-bold shrink-0 ${
+                                  isSelected ? "bg-primary-600 text-white" : "bg-primary-50 text-primary-700"
+                                }`}>
+                                  ${svcItem.price}{svcItem.pricingType === "hourly" ? "/hr" : ""}
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

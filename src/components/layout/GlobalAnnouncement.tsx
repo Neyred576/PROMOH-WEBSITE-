@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase/client";
 import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 import { Info, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
@@ -13,21 +13,34 @@ export default function GlobalAnnouncement() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "platform_settings", "announcements"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.isActive && data.message) {
-          setAnnouncement({ message: data.message, isActive: true });
-          setDismissed(false);
-        } else {
-          setAnnouncement(null);
+    // Don't listen or show in admin routes
+    if (pathname?.startsWith("/admin")) return;
+
+    try {
+      const unsub = onSnapshot(
+        doc(db, "platform_settings", "announcements"),
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.isActive && data.message) {
+              setAnnouncement({ message: data.message, isActive: true });
+              setDismissed(false);
+            } else {
+              setAnnouncement(null);
+            }
+          } else {
+            setAnnouncement(null);
+          }
+        },
+        (err) => {
+          console.error("Announcement snapshot error", err);
         }
-      } else {
-        setAnnouncement(null);
-      }
-    });
-    return () => unsub();
-  }, []);
+      );
+      return () => unsub();
+    } catch (e) {
+      console.error("Error setting up announcement listener", e);
+    }
+  }, [pathname]);
 
   // Don't show in admin routes
   if (pathname?.startsWith("/admin")) return null;

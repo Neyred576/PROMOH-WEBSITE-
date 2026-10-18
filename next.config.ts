@@ -21,9 +21,22 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  // Prevent Firebase client SDK from being bundled into the server/edge runtime.
+  // These packages rely on browser APIs and must remain client-only.
+  serverExternalPackages: [
+    "firebase",
+    "firebase/app",
+    "firebase/auth",
+    "firebase/firestore",
+    "firebase/storage",
+    "@firebase/app",
+    "@firebase/auth",
+    "@firebase/firestore",
+    "@firebase/storage",
+  ],
   experimental: {
-    optimizePackageImports: ["lucide-react", "recharts", "firebase"],
-  }
+    optimizePackageImports: ["lucide-react", "recharts"],
+  },
 };
 
 export default nextConfig;

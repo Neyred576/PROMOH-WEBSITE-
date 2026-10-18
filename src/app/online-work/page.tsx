@@ -94,7 +94,7 @@ export default function OnlineWorkPage() {
           </p>
           <div className="space-y-3">
             <Link href="/online-jobs" className="block">
-              <Button variant="primary" className="w-full">View Job Board</Button>
+              <Button variant="default" className="w-full">View Job Board</Button>
             </Link>
             <Link href="/" className="block">
               <Button variant="outline" className="w-full">Return Home</Button>
@@ -155,8 +155,11 @@ export default function OnlineWorkPage() {
 
               {formData.serviceType === "Other" && (
                 <div>
+                  <label htmlFor="otherServiceType" className="block text-sm font-medium text-gray-700 mb-1">
+                    Please specify the service <span className="text-red-500">*</span>
+                  </label>
                   <Input
-                    label="Please specify the service"
+                    id="otherServiceType"
                     name="otherServiceType"
                     value={formData.otherServiceType}
                     onChange={handleChange}
@@ -182,25 +185,38 @@ export default function OnlineWorkPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Budget (Optional)"
-                  name="budget"
-                  value={formData.budget}
-                  onChange={handleChange}
-                  placeholder="e.g. $50 - $100"
-                />
-                <Input
-                  label="Deadline (Optional)"
-                  name="deadline"
-                  value={formData.deadline}
-                  onChange={handleChange}
-                  placeholder="e.g. Within 3 days"
-                />
+                <div>
+                  <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
+                    Budget (Optional)
+                  </label>
+                  <Input
+                    id="budget"
+                    name="budget"
+                    value={formData.budget}
+                    onChange={handleChange}
+                    placeholder="e.g. $50 - $100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
+                    Deadline (Optional)
+                  </label>
+                  <Input
+                    id="deadline"
+                    name="deadline"
+                    value={formData.deadline}
+                    onChange={handleChange}
+                    placeholder="e.g. Within 3 days"
+                  />
+                </div>
               </div>
 
               <div>
+                <label htmlFor="contactDetails" className="block text-sm font-medium text-gray-700 mb-1">
+                  Contact Email or Phone <span className="text-red-500">*</span>
+                </label>
                 <Input
-                  label="Contact Email or Phone *"
+                  id="contactDetails"
                   name="contactDetails"
                   value={formData.contactDetails}
                   onChange={handleChange}
@@ -213,7 +229,7 @@ export default function OnlineWorkPage() {
             <div className="pt-4 border-t border-gray-100">
               <Button
                 type="submit"
-                variant="primary"
+                variant="default"
                 size="lg"
                 className="w-full flex items-center justify-center gap-2"
                 disabled={isSubmitting}

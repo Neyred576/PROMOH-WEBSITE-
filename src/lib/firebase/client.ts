@@ -1,7 +1,17 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { initializeFirestore, getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+"use client";
+
+/**
+ * Firebase Client SDK — browser-only singleton.
+ *
+ * The "use client" directive tells Next.js/Turbopack that this module
+ * must NEVER be executed during server-side rendering. All imports of
+ * { db, auth, storage } therefore remain safely browser-only.
+ */
+
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,46 +22,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app;
-if (getApps().length > 0) {
-  app = getApp();
-} else if (firebaseConfig.apiKey) {
-  try {
-    app = initializeApp(firebaseConfig);
-  } catch (e) {
-    console.error("Firebase app initialization failed", e);
-  }
+// Initialize Firebase as a singleton
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+export const auth: Auth = getAuth(app);
+export const db: Firestore = getFirestore(app);
+export const storage: FirebaseStorage = getStorage(app);
+
+export function getDb(): Firestore {
+  return db;
 }
 
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
-
-if (app) {
-  try {
-    auth = getAuth(app);
-  } catch (e) {
-    console.error("Firebase auth initialization failed", e);
-  }
-
-  try {
-    db = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
-    });
-  } catch (error) {
-    try {
-      db = getFirestore(app);
-    } catch (e) {
-      console.error("Firebase firestore initialization failed", e);
-    }
-  }
-
-  try {
-    storage = getStorage(app);
-  } catch (e) {
-    console.error("Firebase storage initialization failed", e);
-  }
+export function getStorageInstance(): FirebaseStorage {
+  return storage;
 }
 
-export { auth, db, storage };
+export { app };
 export default app;

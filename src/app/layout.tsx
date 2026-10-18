@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/lib/contexts/AuthContext";
-import GlobalAnnouncement from "@/components/layout/GlobalAnnouncement";
+import GlobalAnnouncementWrapper from "@/components/layout/GlobalAnnouncementWrapper";
+import AuthProviderWrapper from "@/components/providers/AuthProviderWrapper";
 import AIAssistant from "@/components/ui/AIAssistant";
 
 const outfit = Outfit({
@@ -36,11 +36,11 @@ export default function RootLayout({
       className={`${outfit.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans text-foreground bg-background">
-        <GlobalAnnouncement />
-        <AuthProvider>
+        <GlobalAnnouncementWrapper />
+        <AuthProviderWrapper>
           {children}
           <AIAssistant />
-        </AuthProvider>
+        </AuthProviderWrapper>
       </body>
     </html>
   );

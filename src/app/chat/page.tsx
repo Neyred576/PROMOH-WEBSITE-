@@ -216,7 +216,9 @@ function ChatPage() {
       setTyping(true);
       updateDoc(doc(db, "chats", activeChatId), { [`typing.${user.uid}`]: true }).catch(() => {});
     }
-    clearTimeout(typingTimeout.current);
+    if (typingTimeout.current) {
+      clearTimeout(typingTimeout.current);
+    }
     typingTimeout.current = setTimeout(() => {
       setTyping(false);
       updateDoc(doc(db, "chats", activeChatId), { [`typing.${user.uid}`]: false }).catch(() => {});

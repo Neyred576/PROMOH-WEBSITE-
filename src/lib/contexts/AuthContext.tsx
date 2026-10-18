@@ -6,8 +6,8 @@ import {
   User as FirebaseUser,
   signOut as firebaseSignOut
 } from "firebase/auth";
-import { auth, db } from "@/lib/firebase/client";
-import { doc, getDoc } from "firebase/firestore";
+import { auth, getDb } from "@/lib/firebase/client";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 export type UserRole = "customer" | "provider" | "admin";
 
@@ -42,15 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) {
-      console.error("Firebase auth is not initialized. Please check your environment variables.");
-      setLoading(false);
-      return;
-    }
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         try {
+          const db = getDb();
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           let role: UserRole = "customer";
           let isVerified = false;
@@ -71,7 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               await firebaseSignOut(auth);
               setUser(null);
               setLoading(false);
-              // Show alert in browser
               if (typeof window !== "undefined") {
                 window.location.href = "/banned";
               }
@@ -98,6 +92,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
             }
+          }
+
+          // Mark user as online in Firestore
+          updateDoc(doc(db, "users", firebaseUser.uid), {
+            isOnline: true,
+            lastSeen: new Date().toISOString(),
+          }).catch(() => {});
+
+          if (role === "provider") {
+            updateDoc(doc(db, "providers", firebaseUser.uid), {
+              isOnline: true,
+              lastSeen: new Date().toISOString(),
+            }).catch(() => {});
           }
 
           setUser({
@@ -131,6 +138,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    if (user?.uid) {
+      try {
+        const db = getDb();
+        await updateDoc(doc(db, "users", user.uid), {
+          isOnline: false,
+          lastSeen: new Date().toISOString(),
+        }).catch(() => {});
+
+        if (user.role === "provider") {
+          await updateDoc(doc(db, "providers", user.uid), {
+            isOnline: false,
+            lastSeen: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      } catch (e) {
+        // continue signing out
+      }
+    }
     await firebaseSignOut(auth);
   };
 

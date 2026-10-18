@@ -63,7 +63,7 @@ export default function Home() {
               </div>
               <div className="flex-shrink-0 w-full md:w-auto">
                 <Link href="/online-work" className="block">
-                  <Button variant="primary" size="lg" className="w-full bg-white text-primary-900 hover:bg-gray-50 flex items-center justify-center gap-2">
+                  <Button variant="default" size="lg" className="w-full bg-white text-primary-900 hover:bg-gray-50 flex items-center justify-center gap-2">
                     <Laptop className="w-5 h-5" />
                     Post a Digital Job
                   </Button>
@@ -160,6 +160,7 @@ export default function Home() {
             <ul className="space-y-3 text-sm font-medium">
               <li><Link href="/terms" className="hover:text-primary-600 transition-colors">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-primary-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/admin/login" className="hover:text-primary-600 transition-colors">Admin Portal</Link></li>
             </ul>
           </div>
         </div>

@@ -115,7 +115,7 @@ export default function OnlineJobsPage() {
               There are currently no open requests matching your search. Check back soon or post a job yourself!
             </p>
             <Link href="/online-work">
-              <Button variant="primary">Post a Job</Button>
+              <Button variant="default">Post a Job</Button>
             </Link>
           </div>
         ) : (
@@ -166,7 +166,7 @@ export default function OnlineJobsPage() {
                         </div>
                       ) : (
                         <Button 
-                          variant="primary" 
+                          variant="default" 
                           className="w-full h-12"
                           onClick={() => handleRevealContact(job.id)}
                         >
