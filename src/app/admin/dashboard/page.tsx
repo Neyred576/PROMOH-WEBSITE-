@@ -18,6 +18,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { playNotificationChime } from "@/lib/audio";
 import {
   Users,
   Briefcase,
@@ -158,6 +159,38 @@ async function ensureAdminAuth(): Promise<void> {
   return adminAuthInFlight;
 }
 
+/**
+ * Signals the admin with Web Audio chime, desktop notification (if enabled),
+ * and tab title flashing when a new customer or provider joins.
+ */
+function triggerAdminAlert(title: string, message: string) {
+  try {
+    playNotificationChime();
+  } catch {}
+
+  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification(title, {
+        body: message,
+        icon: "/logo.png",
+      });
+    } catch {}
+  }
+
+  if (typeof document !== "undefined") {
+    let flashes = 0;
+    const originalTitle = document.title;
+    const interval = setInterval(() => {
+      document.title = flashes % 2 === 0 ? `🔔 ${title}` : originalTitle;
+      flashes++;
+      if (flashes > 10) {
+        clearInterval(interval);
+        document.title = originalTitle;
+      }
+    }, 1000);
+  }
+}
+
 interface Toast {
   id: string;
   type: "success" | "info" | "warning";
@@ -295,6 +328,7 @@ function AdminDashboardContent() {
   const [firestoreError, setFirestoreError] = useState<string | null>(null);
   const [reconnectCount, setReconnectCount] = useState(0);
   const [retryingSync, setRetryingSync] = useState(false);
+  const [alertSoundEnabled, setAlertSoundEnabled] = useState(true);
 
   // Track previous counts to detect incoming notifications
   const prevProviderCount = useRef<number | null>(null);
@@ -304,7 +338,7 @@ function AdminDashboardContent() {
   const pushToast = useCallback((message: string, type: Toast["type"] = "info") => {
     const id = Math.random().toString(36).slice(2);
     setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 6000);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -314,6 +348,28 @@ function AdminDashboardContent() {
   const showMsg = (msg: string) => {
     setMessage(msg);
     setTimeout(() => setMessage(""), 3500);
+  };
+
+  // Toggle and test chime & desktop notifications
+  const toggleAlertPermissions = async () => {
+    playNotificationChime();
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        const perm = await Notification.requestPermission();
+        if (perm === "granted") {
+          showMsg("🔔 Audio & desktop notifications enabled!");
+          new Notification("Promoh Admin Signals Active", {
+            body: "You will receive instant chime & desktop alerts when customers or providers sign up.",
+            icon: "/logo.png",
+          });
+        }
+      } else if (Notification.permission === "granted") {
+        showMsg("🔔 Chime tested! Sound and desktop alerts are active.");
+      }
+    } else {
+      showMsg("🔔 Chime tested! Audio alerts are active.");
+    }
+    setAlertSoundEnabled(true);
   };
 
   // Re-authenticate as admin and retry syncing all live feeds
@@ -365,6 +421,9 @@ function AdminDashboardContent() {
 
       if (isCancelled) return;
 
+      let initialUsersLoaded = false;
+      let initialProvidersLoaded = false;
+
       // 1. Listen to users (Customers)
       unsubUsers = onSnapshot(
         collection(db, "users"),
@@ -381,11 +440,30 @@ function AdminDashboardContent() {
             }
           });
 
-          // Toast on new customer
-          if (prevCustomerCount.current !== null && customersList.length > prevCustomerCount.current) {
-            pushToast(`🙋 New customer registered!`, "info");
+          // Immediate real-time signal when a customer creates an account
+          if (initialUsersLoaded) {
+            snap.docChanges().forEach((change) => {
+              if (change.type === "added") {
+                const data = change.doc.data();
+                if (data.role !== "provider" && data.role !== "admin") {
+                  const customerName =
+                    data.displayName ||
+                    `${data.firstName || ""} ${data.lastName || ""}`.trim() ||
+                    data.email ||
+                    "New Customer";
+                  triggerAdminAlert(
+                    "🙋 New Customer Registered!",
+                    `${customerName} just created an account (${data.email || ""})`
+                  );
+                  pushToast(
+                    `🙋 New Customer Registered: ${customerName} (${data.email || ""})`,
+                    "info"
+                  );
+                }
+              }
+            });
           }
-          prevCustomerCount.current = customersList.length;
+          initialUsersLoaded = true;
 
           customersList.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
           setAllCustomers(customersList);
@@ -412,11 +490,30 @@ function AdminDashboardContent() {
           setFirestoreError(null);
           const providers = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Provider));
 
-          // Toast on new provider
-          if (prevProviderCount.current !== null && providers.length > prevProviderCount.current) {
-            pushToast(`🏢 New provider applied — review pending!`, "warning");
+          // Immediate real-time signal when a provider registers an account
+          if (initialProvidersLoaded) {
+            snap.docChanges().forEach((change) => {
+              if (change.type === "added") {
+                const data = change.doc.data();
+                const providerName =
+                  data.businessName ||
+                  data.displayName ||
+                  `${data.firstName || ""} ${data.lastName || ""}`.trim() ||
+                  data.email ||
+                  "New Provider";
+                const category = data.servicesOffered || "General";
+                triggerAdminAlert(
+                  "🏢 New Provider Application!",
+                  `${providerName} applied for ${category} — Pending Verification`
+                );
+                pushToast(
+                  `🏢 New Provider Application: ${providerName} (${category}) — Pending Review`,
+                  "warning"
+                );
+              }
+            });
           }
-          prevProviderCount.current = providers.length;
+          initialProvidersLoaded = true;
 
           providers.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
           setAllProviders(providers);
@@ -1338,6 +1435,22 @@ function AdminDashboardContent() {
               Ctrl + K
             </kbd>
           </Button>
+
+          {/* Audio Chime & Signals Toggle */}
+          <button
+            type="button"
+            onClick={toggleAlertPermissions}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              alertSoundEnabled
+                ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                : "bg-secondary-50 border-secondary-200 text-secondary-500 hover:text-secondary-800"
+            }`}
+            title="Click to test chime & enable browser desktop notifications for new signups"
+          >
+            <Bell className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden md:inline">Signals: Sound & Desktop ON</span>
+            <span className="md:hidden">Signals</span>
+          </button>
 
           {/* Emergency Maintenance Mode Quick Toggle */}
           <button
