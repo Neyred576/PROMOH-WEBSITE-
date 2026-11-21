@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { 
+  signInWithEmailAndPassword, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult 
+} from "firebase/auth";
 import { auth, db } from "@/lib/firebase/client";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -32,6 +38,48 @@ export default function LoginPage() {
       else window.location.href = "/dashboard";
     }
   }, [user, authLoading]);
+
+  // Check for redirect result on return from Google redirect auth
+  useEffect(() => {
+    async function handleRedirectResult() {
+      try {
+        const cred = await getRedirectResult(auth);
+        if (cred?.user) {
+          const userRef = doc(db, "users", cred.user.uid);
+          const userDoc = await getDoc(userRef).catch(() => null);
+          if (!userDoc || !userDoc.exists()) {
+            await setDoc(userRef, {
+              email: cred.user.email,
+              displayName: cred.user.displayName || "Customer",
+              role: "customer",
+              createdAt: new Date().toISOString(),
+              isOnline: true,
+            }, { merge: true });
+            window.location.href = "/dashboard";
+          } else {
+            const role = userDoc.data().role;
+            if (role === "admin") {
+              document.cookie = "admin_session=authenticated; path=/; max-age=28800; SameSite=Strict";
+              window.location.href = "/admin/dashboard";
+            } else if (role === "provider") {
+              window.location.href = "/provider/dashboard";
+            } else {
+              window.location.href = "/dashboard";
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Google redirect login error:", err);
+        if (err.code === "auth/unauthorized-domain") {
+          const currentDomain = typeof window !== "undefined" ? window.location.hostname : "your domain";
+          setError(`Domain "${currentDomain}" is not authorized in Firebase Console. Please add "${currentDomain}" to Firebase Console → Authentication → Settings → Authorized domains.`);
+        } else {
+          setError(err.message || "Failed to sign in with Google.");
+        }
+      }
+    }
+    handleRedirectResult();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,9 +120,10 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(auth, provider);
       const userRef = doc(db, "users", cred.user.uid);
       const userDoc = await getDoc(userRef).catch(() => null);
@@ -98,12 +147,18 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Google sign in error:", err);
-      if (err.code === "auth/popup-closed-by-user") {
-        setError("Sign-in popup closed before completing. If you are using Incognito mode or have third-party cookies disabled, please allow popups/cookies or log in with email.");
-      } else if (err.code === "auth/unauthorized-domain") {
-        setError("Domain not authorized in Firebase Console. Please add localhost to Firebase Auth Authorized Domains.");
+      if (err.code === "auth/unauthorized-domain") {
+        const currentDomain = typeof window !== "undefined" ? window.location.hostname : "your domain";
+        setError(`Domain "${currentDomain}" is not authorized in Firebase. Please add "${currentDomain}" to Firebase Console → Authentication → Settings → Authorized domains.`);
+      } else if (err.code === "auth/popup-closed-by-user" || err.code === "auth/popup-blocked" || err.code === "auth/cancelled-popup-request") {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch {
+          setError("Google sign-in popup was blocked or closed. Please allow popups or cookies, or use email login.");
+        }
       } else if (err.code === "auth/operation-not-allowed") {
-        setError("Google Sign-In is not enabled in Firebase Console.");
+        setError("Google Sign-In is not enabled in Firebase Console (Authentication → Sign-in method → Google).");
       } else {
         setError(err.message || "Failed to sign in with Google.");
       }
@@ -158,6 +213,13 @@ export default function LoginPage() {
                 <span className="bg-white px-2 text-secondary-500 font-medium">Or continue with</span>
               </div>
             </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs sm:text-sm rounded-xl border border-red-200 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+            )}
 
             <Button
               type="button"
