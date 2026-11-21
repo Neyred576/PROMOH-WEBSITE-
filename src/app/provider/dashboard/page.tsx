@@ -33,11 +33,14 @@ import {
   AlertTriangle,
   ExternalLink,
   Store,
+  Copy,
+  Check,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currencies";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
+import BookingStatusStepper from "@/components/booking/BookingStatusStepper";
 
 // Subcomponents
 import CompleteBookingModal from "@/components/provider/CompleteBookingModal";
@@ -47,6 +50,7 @@ import AvailabilityScheduleCard from "@/components/provider/AvailabilitySchedule
 import PayoutsCard from "@/components/provider/PayoutsCard";
 import ProviderReviewsManager from "@/components/provider/ProviderReviewsManager";
 import { ProviderBadgesDashboardCard } from "@/components/provider/ProviderBadges";
+import ProviderBookingsCalendar from "@/components/provider/ProviderBookingsCalendar";
 
 type BookingTab = "all" | "pending" | "active" | "completed" | "cancelled";
 
@@ -67,7 +71,7 @@ export default function ProviderDashboardPage() {
   const [rejectBooking, setRejectBooking] = useState<any | null>(null);
 
   // Active Main Section Tab
-  const [activeSection, setActiveSection] = useState<"overview" | "availability" | "payouts" | "reviews">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "calendar" | "availability" | "payouts" | "reviews">("overview");
 
   // Handle standard status updates (e.g. Accept, Start Service)
   const handleUpdateBooking = async (
@@ -227,6 +231,52 @@ export default function ProviderDashboardPage() {
     };
   }, [user?.uid]);
 
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const checklistItems = useMemo(() => {
+    return [
+      {
+        id: "photo",
+        label: "Upload Profile Avatar",
+        done: !!providerData?.photoURL,
+        link: "/provider/dashboard/profile",
+      },
+      {
+        id: "bio",
+        label: "Write Business Description",
+        done: !!providerData?.description && providerData.description.length > 20,
+        link: "/provider/dashboard/profile",
+      },
+      {
+        id: "services",
+        label: "List Your Services & Pricing",
+        done: !!(providerData?.serviceCards?.length || providerData?.servicesOffered),
+        link: "/provider/dashboard/profile",
+      },
+      {
+        id: "schedule",
+        label: "Set Weekly Working Schedule",
+        done: !!providerData?.availability?.workingDays?.length,
+        action: () => setActiveSection("availability"),
+      },
+      {
+        id: "verification",
+        label: "Submit Verification Documents",
+        done: providerData?.status === "Approved" || !!providerData?.verificationDocumentUrl,
+        link: "/provider/dashboard/verification",
+      },
+      {
+        id: "portfolio",
+        label: "Add Portfolio Photos (at least 1)",
+        done: (providerData?.portfolioURLs?.length || 0) >= 1,
+        link: "/provider/dashboard/profile",
+      },
+    ];
+  }, [providerData]);
+  const completedChecklistCount = checklistItems.filter(i => i.done).length;
+  const isAllChecklistDone = completedChecklistCount === checklistItems.length;
+
   const currency = providerData?.currency || "USD";
   const rating = providerData?.rating ? providerData.rating.toFixed(1) : "New";
   const isProfileComplete =
@@ -303,6 +353,31 @@ export default function ProviderDashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Live Online Presence Switch */}
+          <button
+            type="button"
+            onClick={async () => {
+              const nextState = providerData?.isOnline === false ? true : false;
+              if (user?.uid) {
+                await updateDoc(doc(db, "providers", user.uid), { isOnline: nextState }).catch(() => {});
+                await updateDoc(doc(db, "users", user.uid), { isOnline: nextState }).catch(() => {});
+              }
+            }}
+            className={`flex items-center gap-2 px-3.5 py-2 h-10 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
+              providerData?.isOnline !== false
+                ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                : "bg-secondary-100 border-secondary-300 text-secondary-600 hover:bg-secondary-200"
+            }`}
+            title="Toggle whether you appear online in search results"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                providerData?.isOnline !== false ? "bg-green-500 animate-pulse" : "bg-secondary-400"
+              }`}
+            />
+            <span>{providerData?.isOnline !== false ? "Online & Available" : "Offline / On Break"}</span>
+          </button>
+
           {!user?.isVerified && (
             <div className="flex items-center gap-3 bg-amber-50 text-amber-800 px-4 py-2 rounded-2xl border border-amber-200">
               <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
@@ -319,6 +394,22 @@ export default function ProviderDashboardPage() {
                 </Button>
               </Link>
             </div>
+          )}
+
+          {user?.uid && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/provider/${user.uid}`);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2000);
+              }}
+              className="h-10 px-3.5 rounded-xl font-semibold gap-2 border-secondary-300 hover:bg-secondary-50"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-secondary-600" />}
+              {copiedLink ? "Link Copied!" : "Copy Profile Link"}
+            </Button>
           )}
 
           <Link href="/provider/dashboard/profile">
@@ -339,6 +430,108 @@ export default function ProviderDashboardPage() {
         </div>
       </div>
 
+      {/* Onboarding Checklist Widget */}
+      {!checklistDismissed && !isAllChecklistDone && (
+        <Card className="border-primary-200 bg-gradient-to-r from-primary-50/70 via-indigo-50/40 to-white shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-primary-100/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary-600 text-white flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-base text-secondary-900 font-bold">
+                    Provider Setup Checklist ({completedChecklistCount}/{checklistItems.length} completed)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-secondary-600">
+                    Complete your profile to rank higher in searches and win more customer bookings.
+                  </CardDescription>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChecklistDismissed(true)}
+                className="text-secondary-400 hover:text-secondary-700 p-1 rounded-lg hover:bg-white/80 transition-colors text-xs font-bold"
+                title="Dismiss checklist"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Progress bar */}
+            <div className="w-full bg-secondary-200/80 rounded-full h-2 mt-3 overflow-hidden">
+              <div
+                className="bg-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${(completedChecklistCount / checklistItems.length) * 100}%` }}
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {checklistItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs transition-all ${
+                    item.done
+                      ? "bg-white/90 border-emerald-200 text-secondary-700"
+                      : "bg-white border-secondary-200 hover:border-primary-300 text-secondary-900"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {item.done ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border-2 border-secondary-300 shrink-0" />
+                    )}
+                    <span className={`font-medium truncate ${item.done ? "line-through text-secondary-400" : ""}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                  {!item.done && (
+                    item.link ? (
+                      <Link href={item.link}>
+                        <Button size="sm" variant="outline" className="h-6 px-2 text-[11px] shrink-0 font-medium ml-2">
+                          Start
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={item.action} className="h-6 px-2 text-[11px] shrink-0 font-medium ml-2">
+                        Start
+                      </Button>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Urgent Pending Request Banner */}
+      {pendingCount > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-white animate-spin" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">
+                {pendingCount} Pending Booking Request{pendingCount > 1 ? "s" : ""} Awaiting Your Response
+              </h4>
+              <p className="text-xs text-amber-100 mt-0.5">
+                Fast responses boost your Provider Trust Score and search ranking.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setSelectedTab("pending")}
+            className="bg-white text-amber-900 hover:bg-amber-50 font-bold text-xs h-9 px-4 shrink-0 shadow-sm"
+          >
+            Review Pending ({pendingCount})
+          </Button>
+        </div>
+      )}
+
       {/* Top Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-secondary-200 pb-2 overflow-x-auto">
         <button
@@ -352,6 +545,19 @@ export default function ProviderDashboardPage() {
         >
           <TrendingUp className="w-4 h-4" />
           Dashboard & Bookings
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection("calendar")}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            activeSection === "calendar"
+              ? "bg-primary-600 text-white shadow-sm"
+              : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Schedule Calendar
         </button>
 
         <button
@@ -470,6 +676,14 @@ export default function ProviderDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Calendar View Section */}
+      {activeSection === "calendar" && (
+        <ProviderBookingsCalendar
+          bookings={recentRequests}
+          currency={currency}
+        />
+      )}
 
       {/* Availability Schedule Section (When active or toggleable) */}
       {activeSection === "availability" && (
@@ -746,6 +960,15 @@ export default function ProviderDashboardPage() {
                                 "{req.notes}"
                               </div>
                             )}
+
+                            {/* Live Booking Status Stepper */}
+                            <div className="pt-2">
+                              <BookingStatusStepper
+                                status={req.status}
+                                paymentStatus={req.paymentStatus}
+                                compact
+                              />
+                            </div>
                           </div>
 
                           {/* Action Buttons Column */}
@@ -956,20 +1179,20 @@ export default function ProviderDashboardPage() {
               </div>
             </Card>
 
-            {/* AI Banner & Copy Generator Hint */}
+            {/* Boost Profile Card */}
             <Card className="bg-gradient-to-br from-primary-600 to-indigo-700 text-white border-transparent overflow-hidden relative shadow-md">
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
               <CardContent className="p-6 relative z-10">
                 <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center mb-3">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-base font-bold mb-1.5">Stand out with AI</h3>
+                <h3 className="text-base font-bold mb-1.5">Boost Your Profile</h3>
                 <p className="text-primary-100 text-xs mb-4 leading-relaxed">
-                  Generate professional business descriptions and marketing copy to attract more high-paying clients.
+                  Add portfolio photos, detailed pricing, and verified credentials to attract more high-paying clients.
                 </p>
                 <Link href="/provider/dashboard/profile">
                   <Button className="w-full bg-white text-primary-700 hover:bg-primary-50 font-semibold shadow-sm text-xs h-9">
-                    Try AI Profile Tools
+                    Enhance Profile
                   </Button>
                 </Link>
               </CardContent>

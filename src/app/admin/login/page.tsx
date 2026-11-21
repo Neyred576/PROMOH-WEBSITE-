@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Eye, EyeOff, ShieldAlert, Shield } from "lucide-react";
 import Image from "next/image";
+import { auth, db } from "@/lib/firebase/client";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -43,6 +46,30 @@ export default function AdminLoginPage() {
       if (res.ok) {
         // Set secure cookie valid for 8 hours
         document.cookie = "admin_session=authenticated; path=/; max-age=28800; SameSite=Strict";
+
+        // Ensure Firebase Auth session is active as admin so Firestore real-time snapshots work
+        try {
+          const cred = await signInWithEmailAndPassword(auth, "admin@promoh.com", password);
+          await setDoc(doc(db, "users", cred.user.uid), {
+            email: "admin@promoh.com",
+            role: "admin",
+            displayName: "System Administrator",
+          }, { merge: true }).catch(() => {});
+        } catch (authErr: any) {
+          if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
+            try {
+              const cred = await createUserWithEmailAndPassword(auth, "admin@promoh.com", password);
+              await setDoc(doc(db, "users", cred.user.uid), {
+                email: "admin@promoh.com",
+                role: "admin",
+                displayName: "System Administrator",
+              }, { merge: true }).catch(() => {});
+            } catch {
+              // Ignore if already created or fallback
+            }
+          }
+        }
+
         router.push("/admin/dashboard");
       } else {
         setError("Incorrect master password. Please try again.");

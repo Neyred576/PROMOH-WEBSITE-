@@ -49,7 +49,7 @@ export function computeProviderBadges(providerData: any, bookings: any[] = []): 
     },
     {
       id: "top-rated",
-      name: "Top Rated 2026",
+      name: `Top Rated ${new Date().getFullYear()}`,
       description: "Maintains an outstanding 4.8+ client review rating",
       icon: Star,
       isUnlocked: rating >= 4.8 && reviewCount >= 3,

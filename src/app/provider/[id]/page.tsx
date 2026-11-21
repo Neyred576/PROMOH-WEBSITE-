@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/client";
-import { doc, onSnapshot, collection, query, where, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, updateDoc, arrayUnion, arrayRemove, increment } from "firebase/firestore";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +13,7 @@ import {
   CalendarCheck, ArrowLeft, Clock, Award, Heart, Flag,
   ImageIcon, ChevronLeft, ChevronRight, X, DollarSign,
   Check, Briefcase, ExternalLink, ZoomIn, Sparkles,
-  CornerDownRight
+  CornerDownRight, Eye, Share2
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -52,6 +52,7 @@ interface ProviderData {
   status: string;
   trustScore?: number;
   currency?: string;
+  viewCount?: number;
 }
 
 interface Review {
@@ -246,9 +247,34 @@ export default function ProviderProfilePage() {
   const [saving, setSaving] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [copiedShare, setCopiedShare] = useState(false);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: provider?.businessName || "Promoh Service Provider",
+          text: `Check out ${provider?.businessName || "this service professional"} on Promoh!`,
+          url,
+        });
+        return;
+      } catch (e) {
+        // fallback to clipboard
+      }
+    }
+    navigator.clipboard.writeText(url);
+    setCopiedShare(true);
+    setTimeout(() => setCopiedShare(false), 2500);
+  };
 
   useEffect(() => {
     if (!providerId) return;
+
+    // Increment profile view count on visit
+    updateDoc(doc(db, "providers", providerId), {
+      viewCount: increment(1),
+    }).catch(() => {});
 
     const unsubProvider = onSnapshot(doc(db, "providers", providerId), (docSnap) => {
       if (docSnap.exists()) {
@@ -316,13 +342,24 @@ export default function ProviderProfilePage() {
     );
   }
 
-  if (!provider || provider.status !== "Approved") {
+  // Allow admin preview (admin_session cookie) so they can inspect pending providers
+  const isAdminPreview =
+    typeof document !== "undefined" &&
+    document.cookie.includes("admin_session=authenticated");
+
+  if (!provider || (provider.status !== "Approved" && !isAdminPreview)) {
     return (
       <div className="min-h-screen bg-secondary-50">
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 py-24 text-center">
-          <h1 className="text-2xl font-bold text-secondary-700">Provider not found</h1>
-          <p className="text-secondary-500 mt-2">This profile may not exist or is pending verification.</p>
+          <h1 className="text-2xl font-bold text-secondary-700">
+            {provider ? "Provider Pending Verification" : "Provider not found"}
+          </h1>
+          <p className="text-secondary-500 mt-2">
+            {provider
+              ? `This provider's application is currently under review (Status: ${provider.status}).`
+              : "This profile may not exist or is pending verification."}
+          </p>
           <Link href="/search">
             <Button className="mt-6">Browse Professionals</Button>
           </Link>
@@ -372,6 +409,18 @@ export default function ProviderProfilePage() {
                   <div className="absolute inset-0 bg-black/10" />
                   {/* Action buttons */}
                   <div className="absolute top-4 right-4 flex gap-2 z-10">
+                    <button
+                      onClick={handleShare}
+                      title={copiedShare ? "Link copied!" : "Share Profile"}
+                      className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow hover:scale-110 transition-transform text-secondary-600 hover:text-primary-600 relative"
+                    >
+                      {copiedShare ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+                      {copiedShare && (
+                        <span className="absolute -bottom-8 right-0 bg-secondary-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md whitespace-nowrap animate-fade-in-up">
+                          Copied!
+                        </span>
+                      )}
+                    </button>
                     <button
                       onClick={toggleSave}
                       disabled={saving}
@@ -427,6 +476,11 @@ export default function ProviderProfilePage() {
                       <span className="flex items-center gap-1 text-sm text-green-600 font-semibold">
                         <Award className="w-4 h-4" /> Trust Score: {trustScore}/100
                       </span>
+                      {provider.viewCount !== undefined && (
+                        <span className="flex items-center gap-1 text-sm text-secondary-500 font-medium">
+                          <Eye className="w-4 h-4 text-secondary-400" /> {provider.viewCount} view{provider.viewCount === 1 ? "" : "s"}
+                        </span>
+                      )}
                     </div>
 
                     {/* Recognitions & Badges */}

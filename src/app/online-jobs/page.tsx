@@ -5,7 +5,7 @@ import { collection, query, where, orderBy, onSnapshot } from "firebase/firestor
 import { db } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
-import { Laptop, Briefcase, Clock, DollarSign, Lock, Search, Filter } from "lucide-react";
+import { Laptop, Briefcase, Clock, DollarSign, Lock, Search, Filter, Sparkles, Radio } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 
@@ -85,6 +85,20 @@ export default function OnlineJobsPage() {
 
       {/* Main Content */}
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-12">
+        {/* Live Stream Bar */}
+        <div className="flex items-center justify-between pb-3 text-xs font-semibold text-secondary-600">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-emerald-700 font-bold">Live Stream Active</span>
+          </div>
+          <span className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-bold border border-primary-200">
+            {filteredJobs.length} Open Request{filteredJobs.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
         {/* Search & Filter */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col sm:flex-row gap-4 items-center">
           <div className="relative w-full">
@@ -133,6 +147,18 @@ export default function OnlineJobsPage() {
                         <Clock className="w-4 h-4" />
                         {job.createdAt?.toDate ? job.createdAt.toDate().toLocaleDateString() : 'Just now'}
                       </span>
+                      {(() => {
+                        const isRecent = !job.createdAt || (
+                          job.createdAt?.toDate
+                            ? (Date.now() - job.createdAt.toDate().getTime()) < 86400000
+                            : true
+                        );
+                        return isRecent ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold border border-amber-200 animate-pulse">
+                            <Sparkles className="w-3 h-3 text-amber-600" /> New
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     
                     <p className="text-gray-700 mb-6 whitespace-pre-wrap leading-relaxed">

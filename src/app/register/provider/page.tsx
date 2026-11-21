@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { doc, setDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import Link from "next/link";
 import Image from "next/image";
-import { CheckCircle, Eye, EyeOff } from "lucide-react";
+import { CheckCircle, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import { COUNTRIES } from "@/lib/currencies";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 const SERVICE_CATEGORIES = ["Electricians", "Plumbers", "Cleaners", "Tutors", "Photographers", "Mechanics", "Carpenters", "Painters", "Movers", "Beauty Professionals", "IT Specialists", "Home Repair", "Other"];
 
@@ -37,14 +38,36 @@ export default function ProviderRegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const emailTimerRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const { user } = useAuth();
 
   const pwRules = validatePassword(form.password);
   const pwValid = pwRules.every(r => r.ok);
 
-  const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const val = e.target.value;
+    setForm(prev => ({ ...prev, [field]: val }));
+
+    if (field === "email") {
+      if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
+      if (!val || !val.includes("@") || !val.includes(".")) {
+        setEmailStatus("idle");
+        return;
+      }
+      setEmailStatus("checking");
+      emailTimerRef.current = setTimeout(async () => {
+        try {
+          const q = query(collection(db, "users"), where("email", "==", val.trim().toLowerCase()));
+          const snap = await getDocs(q);
+          setEmailStatus(snap.empty ? "available" : "taken");
+        } catch {
+          setEmailStatus("idle");
+        }
+      }, 500);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,54 +78,50 @@ export default function ProviderRegisterPage() {
     if (!form.country || !form.serviceCategory) { setError("Please select your country and service category."); return; }
 
     setLoading(true);
-    // Safety net: force-navigate after 5s no matter what
-    const safetyTimer = setTimeout(() => { window.location.replace("/"); }, 5000);
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      // Create account & Firestore doc in background — do not await to prevent hanging on slow connections
-      Promise.all([
-        updateProfile(cred.user, { displayName: `${form.firstName} ${form.lastName}` }),
-        setDoc(doc(db, "users", cred.user.uid), {
-          firstName: form.firstName, lastName: form.lastName,
-          email: form.email, phone: form.phone,
-          country: form.country,
-          currency: COUNTRIES.find(c => c.code === form.country)?.currency || "USD",
-          role: "provider", emailVerified: false,
-          createdAt: new Date().toISOString(),
-        }),
-        setDoc(doc(db, "providers", cred.user.uid), {
-          businessName: form.businessName,
-          firstName: form.firstName, lastName: form.lastName,
-          email: form.email, phone: form.phone,
-          country: form.country,
-          location: `${form.city}, ${COUNTRIES.find(c => c.code === form.country)?.name || form.country}`,
-          currency: COUNTRIES.find(c => c.code === form.country)?.currency || "USD",
-          servicesOffered: form.serviceCategory,
-          isVerified: false, status: "Pending",
-          isFeatured: false,
-          createdAt: new Date().toISOString(),
-        })
-      ]).catch(console.error);
+      const countryData = COUNTRIES.find(c => c.code === form.country);
+      const fullName = `${form.firstName} ${form.lastName}`.trim();
+      const displayName = form.businessName || fullName;
 
-      // Store support credentials in background — don't block navigation
-      setDoc(doc(db, "support_credentials", cred.user.uid), {
-        uid: cred.user.uid,
-        name: `${form.firstName} ${form.lastName}`,
-        businessName: form.businessName,
-        email: form.email, phone: form.phone,
+      // Ensure profile and docs are saved before routing
+      await updateProfile(cred.user, { displayName }).catch(() => {});
+      
+      await setDoc(doc(db, "users", cred.user.uid), {
+        displayName,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone ? `${countryData?.dialCode || ""} ${form.phone}`.trim() : "",
+        country: form.country,
+        currency: countryData?.currency || "USD",
         role: "provider",
-        passwordLength: form.password.length,
-        passwordHint: form.password.slice(0, 3) + "*".repeat(Math.max(0, form.password.length - 3)),
+        emailVerified: false,
         createdAt: new Date().toISOString(),
-      }).catch(() => {});
+        isOnline: true,
+      }, { merge: true });
 
-      // Send verification email in background — don't block navigation
+      await setDoc(doc(db, "providers", cred.user.uid), {
+        businessName: form.businessName,
+        displayName,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone ? `${countryData?.dialCode || ""} ${form.phone}`.trim() : "",
+        country: form.country,
+        location: `${form.city}, ${countryData?.name || form.country}`,
+        currency: countryData?.currency || "USD",
+        servicesOffered: form.serviceCategory,
+        isVerified: false,
+        status: "Pending",
+        isFeatured: false,
+        isOnline: true,
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+
       sendEmailVerification(cred.user).catch(() => {});
-
-      // Use router.push so auth state stays alive (no full page reload)
-      router.push("/provider/dashboard");
+      window.location.href = "/provider/dashboard";
     } catch (err: any) {
-      clearTimeout(safetyTimer);
       if (err.code === "auth/email-already-in-use") {
         setError("An account with this email already exists.");
       } else if (err.code === "auth/operation-not-allowed") {
@@ -113,6 +132,8 @@ export default function ProviderRegisterPage() {
         setError("Password is too weak. Please use a stronger password.");
       } else if (err.code === "auth/network-request-failed") {
         setError("Network error. Please check your internet connection.");
+      } else if (err.code === "permission-denied" || err.message?.includes("PERMISSION_DENIED")) {
+        setError("Cloud Firestore database needs to be enabled in Firebase Console. Please ensure Firestore is created.");
       } else if (err.message?.includes("timed out")) {
         setError("Request timed out. Please check your internet connection and try again.");
       } else {
@@ -158,19 +179,49 @@ export default function ProviderRegisterPage() {
 
               <div>
                 <label className="text-sm font-medium text-secondary-700 block mb-1">Email Address</label>
-                <Input type="email" value={form.email} onChange={set("email")} required placeholder="contact@yourbusiness.com"
-                  className="bg-white border-secondary-300 text-secondary-900 placeholder:text-secondary-400 focus-visible:ring-primary-500" />
+                <div className="relative">
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={set("email")}
+                    required
+                    placeholder="contact@yourbusiness.com"
+                    className="bg-white border-secondary-300 text-secondary-900 placeholder:text-secondary-400 focus-visible:ring-primary-500"
+                  />
+                  {emailStatus === "checking" && (
+                    <span className="absolute right-3 top-3 text-secondary-400 text-xs flex items-center gap-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    </span>
+                  )}
+                </div>
+                {emailStatus === "available" && (
+                  <p className="text-[11px] text-green-600 mt-1 flex items-center gap-1 font-medium">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600" /> Email is available
+                  </p>
+                )}
+                {emailStatus === "taken" && (
+                  <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> An account with this email already exists.{" "}
+                    <Link href="/provider/login" className="underline font-bold text-primary-600">
+                      Log in instead
+                    </Link>
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="text-sm font-medium text-secondary-700 block mb-1">Phone Number</label>
-                <div className="flex gap-2">
-                  <div className="flex h-12 items-center justify-center rounded-xl border bg-white border-secondary-300 text-secondary-900 px-3 text-sm">
-                    {COUNTRIES.find(c => c.code === form.country)?.dialCode || "+1"}
-                  </div>
-                  <Input type="tel" value={form.phone} onChange={set("phone")} required placeholder="555 000 0000"
-                    className="bg-white border-secondary-300 text-secondary-900 placeholder:text-secondary-400 focus-visible:ring-primary-500" />
-                </div>
+                <label className="text-sm font-medium text-secondary-700 block mb-1">Phone Number (Global)</label>
+                <PhoneInput
+                  country={form.country}
+                  phoneNumber={form.phone}
+                  onCountryChange={(code) => setForm((prev) => ({ ...prev, country: code }))}
+                  onPhoneChange={(val) => setForm((prev) => ({ ...prev, phone: val }))}
+                  placeholder="555 0199"
+                  required
+                />
+                <p className="text-[10px] text-secondary-400 mt-1">
+                  Click the country flag to select any of the 240+ countries and territories worldwide.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

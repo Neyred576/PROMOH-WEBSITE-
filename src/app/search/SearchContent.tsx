@@ -43,6 +43,7 @@ interface Provider {
   status: string;
   description?: string;
   trustScore?: number;
+  isOnline?: boolean;
 }
 
 const CATEGORIES = [
@@ -70,6 +71,8 @@ export default function SearchContent() {
   const [locationQuery, setLocationQuery] = useState(searchParams.get("location") || "");
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("q") || "");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<"rating" | "price_asc" | "price_desc" | "reviews" | "name">("rating");
   const [minRating, setMinRating] = useState(0);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -129,13 +132,24 @@ export default function SearchContent() {
       if (location) {
         results = results.filter(p => p.location?.toLowerCase().includes(location));
       }
+      if (onlineOnly) results = results.filter(p => p.isOnline);
       if (verifiedOnly) results = results.filter(p => p.isVerified);
       if (minRating > 0) results = results.filter(p => (p.rating || 0) >= minRating);
       if (maxPrice) results = results.filter(p => Number(p.hourlyRate) <= Number(maxPrice));
       if (minPrice) results = results.filter(p => Number(p.hourlyRate) >= Number(minPrice));
 
-      // Sort by rating desc
-      results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      // Dynamic sorting
+      if (sortBy === "rating") {
+        results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      } else if (sortBy === "price_asc") {
+        results.sort((a, b) => (Number(a.hourlyRate) || 0) - (Number(b.hourlyRate) || 0));
+      } else if (sortBy === "price_desc") {
+        results.sort((a, b) => (Number(b.hourlyRate) || 0) - (Number(a.hourlyRate) || 0));
+      } else if (sortBy === "reviews") {
+        results.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+      } else if (sortBy === "name") {
+        results.sort((a, b) => (a.businessName || a.firstName || "").localeCompare(b.businessName || b.firstName || ""));
+      }
 
       setProviders(results);
     } catch (err) {
@@ -144,7 +158,7 @@ export default function SearchContent() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, locationQuery, verifiedOnly, minRating, maxPrice, minPrice]);
+  }, [searchQuery, locationQuery, verifiedOnly, onlineOnly, minRating, maxPrice, minPrice, sortBy]);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
 
@@ -181,7 +195,18 @@ export default function SearchContent() {
     }
   };
 
-  const activeFilters = verifiedOnly || minRating > 0 || maxPrice || minPrice;
+  const activeFilters = verifiedOnly || onlineOnly || minRating > 0 || !!maxPrice || !!minPrice || sortBy !== "rating";
+
+  const resetAllFilters = () => {
+    setVerifiedOnly(false);
+    setOnlineOnly(false);
+    setMinRating(0);
+    setMaxPrice("");
+    setMinPrice("");
+    setSortBy("rating");
+    setSearchQuery("");
+    setLocationQuery("");
+  };
 
   return (
     <div className="min-h-screen bg-secondary-50">
@@ -240,6 +265,20 @@ export default function SearchContent() {
               >
                 <div className="mt-4 pt-4 border-t border-secondary-200 flex flex-wrap gap-6 items-end">
                   <div>
+                    <label className="text-xs font-semibold text-secondary-500 uppercase tracking-wider block mb-2">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="h-9 px-3 border border-secondary-300 rounded-lg text-sm bg-white text-secondary-800 focus:outline-none focus:border-primary-500 font-medium"
+                    >
+                      <option value="rating">Highest Rated ★</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                      <option value="reviews">Most Reviews</option>
+                      <option value="name">Name: A to Z</option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="text-xs font-semibold text-secondary-500 uppercase tracking-wider block mb-2">Min Rating</label>
                     <div className="flex gap-2">
                       {[0, 3, 4, 4.5].map(r => (
@@ -269,7 +308,16 @@ export default function SearchContent() {
                       <ShieldCheck className="w-4 h-4 text-primary-600" /> Verified Only
                     </label>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => { setVerifiedOnly(false); setMinRating(0); setMaxPrice(""); setMinPrice(""); }}>
+                  <div className="flex items-center gap-3">
+                    <button id="online-toggle" onClick={() => setOnlineOnly(!onlineOnly)}
+                      className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${onlineOnly ? "bg-emerald-600" : "bg-secondary-300"}`}>
+                      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${onlineOnly ? "translate-x-5" : "translate-x-0.5"}`} />
+                    </button>
+                    <label className="text-sm font-medium flex items-center gap-1 cursor-pointer" onClick={() => setOnlineOnly(!onlineOnly)}>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online Now Only
+                    </label>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={resetAllFilters}>
                     <X className="w-4 h-4 mr-1" /> Clear All
                   </Button>
                 </div>
@@ -328,13 +376,19 @@ export default function SearchContent() {
                 {[1,2,3,4,5,6].map(i => <div key={i} className="rounded-2xl bg-secondary-100 animate-pulse h-72" />)}
               </div>
             ) : providers.length === 0 ? (
-              <div className="text-center py-24 border-2 border-dashed border-secondary-200 rounded-2xl bg-white">
-                <Search className="w-12 h-12 text-secondary-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-secondary-500">No professionals found</h3>
-                <p className="text-secondary-400 mt-2">Try adjusting your search or filters.</p>
-                <Button className="mt-6" onClick={() => { setSearchQuery(""); setLocationQuery(""); }}>
-                  Clear Search
-                </Button>
+              <div className="text-center py-20 border-2 border-dashed border-secondary-200 rounded-3xl bg-white p-8">
+                <div className="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4 text-secondary-400">
+                  <Search className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-secondary-800">No professionals found</h3>
+                <p className="text-secondary-500 text-sm mt-1 max-w-md mx-auto">
+                  We couldn't find any verified service providers matching your exact search criteria or filters.
+                </p>
+                <div className="flex justify-center gap-3 mt-6">
+                  <Button onClick={resetAllFilters} className="gap-2">
+                    <X className="w-4 h-4" /> Reset All Filters
+                  </Button>
+                </div>
               </div>
             ) : showMap ? (
               <div className="h-[700px] w-full relative z-0">
@@ -370,6 +424,13 @@ export default function SearchContent() {
                               <div className="absolute top-3 right-12 bg-white/90 px-2 py-0.5 rounded-md flex items-center gap-1 text-xs font-semibold shadow">
                                 <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                                 {provider.rating.toFixed(1)}
+                              </div>
+                            )}
+                            {/* Online Now Indicator */}
+                            {provider.isOnline && (
+                              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm border border-emerald-200">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                Online Now
                               </div>
                             )}
                             {/* Favorite button */}

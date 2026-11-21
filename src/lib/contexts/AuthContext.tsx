@@ -6,7 +6,7 @@ import {
   User as FirebaseUser,
   signOut as firebaseSignOut
 } from "firebase/auth";
-import { auth, getDb } from "@/lib/firebase/client";
+import { auth, db, getDb } from "@/lib/firebase/client";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 export type UserRole = "customer" | "provider" | "admin";
@@ -136,6 +136,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // Real-time Presence & Active Heartbeat
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Heartbeat every 60s
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        updateDoc(doc(db, "users", user.uid), {
+          isOnline: true,
+          lastSeen: new Date().toISOString(),
+        }).catch(() => {});
+
+        if (user.role === "provider") {
+          updateDoc(doc(db, "providers", user.uid), {
+            isOnline: true,
+            lastSeen: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      }
+    }, 60000);
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      updateDoc(doc(db, "users", user.uid), {
+        isOnline: isVisible,
+        lastSeen: new Date().toISOString(),
+      }).catch(() => {});
+
+      if (user.role === "provider") {
+        updateDoc(doc(db, "providers", user.uid), {
+          isOnline: isVisible,
+          lastSeen: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      updateDoc(doc(db, "users", user.uid), {
+        isOnline: false,
+        lastSeen: new Date().toISOString(),
+      }).catch(() => {});
+
+      if (user.role === "provider") {
+        updateDoc(doc(db, "providers", user.uid), {
+          isOnline: false,
+          lastSeen: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user?.uid, user?.role]);
 
   const signOut = async () => {
     if (user?.uid) {

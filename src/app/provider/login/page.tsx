@@ -23,7 +23,7 @@ export default function ProviderLoginPage() {
   // Redirect already-authenticated providers away from the login page
   useEffect(() => {
     if (!authLoading && user) {
-      window.location.href = "/";
+      window.location.href = "/provider/dashboard";
     }
   }, [user, authLoading]);
 
@@ -43,7 +43,7 @@ export default function ProviderLoginPage() {
         return;
       }
 
-      window.location.href = "/";
+      window.location.href = "/provider/dashboard";
     } catch (err: any) {
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         setError("Invalid email or password.");
@@ -105,8 +105,13 @@ export default function ProviderLoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-secondary-500">
-              New provider? <Link href="/provider/register" className="text-primary-600 font-medium hover:underline">Apply here</Link>
+            <div className="mt-6 text-center text-sm text-secondary-500 space-y-2">
+              <div>
+                New provider? <Link href="/provider/register" className="text-primary-600 font-medium hover:underline">Apply here</Link>
+              </div>
+              <div className="text-xs text-secondary-400">
+                Are you a customer? <Link href="/login" className="text-secondary-600 font-medium hover:underline">Log in here</Link>
+              </div>
             </div>
           </CardContent>
         </Card>

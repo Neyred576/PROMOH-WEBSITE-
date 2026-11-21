@@ -65,18 +65,48 @@ export default function NotificationsPage() {
   }, [user?.uid]);
 
   const markAllRead = async () => {
-    const batch = writeBatch(db);
-    notifications.forEach(n => {
-      if (!n.read) batch.update(doc(db, "notifications", n.id), { read: true });
-    });
-    await batch.commit();
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await Promise.allSettled(
+        unread.map((n) =>
+          updateDoc(doc(db, "notifications", n.id), { read: true }).catch((err) =>
+            console.warn("Failed to mark read:", n.id, err)
+          )
+        )
+      );
+    } catch (err) {
+      console.error("markAllRead error:", err);
+    }
   };
 
   const deleteAll = async () => {
     if (!confirm("Delete all notifications? This cannot be undone.")) return;
-    const batch = writeBatch(db);
-    notifications.forEach(n => batch.delete(doc(db, "notifications", n.id)));
-    await batch.commit();
+    const toDelete = [...notifications];
+    setNotifications([]);
+    try {
+      await Promise.allSettled(
+        toDelete.map((n) =>
+          deleteDoc(doc(db, "notifications", n.id)).catch((err) =>
+            console.warn("Failed to delete notification:", n.id, err)
+          )
+        )
+      );
+    } catch (err) {
+      console.error("deleteAll error:", err);
+    }
+  };
+
+  const deleteSingle = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await deleteDoc(doc(db, "notifications", id));
+    } catch (err) {
+      console.error("deleteSingle error:", id, err);
+    }
   };
 
   const displayed = filter === "unread" ? notifications.filter(n => !n.read) : notifications;
@@ -149,32 +179,62 @@ export default function NotificationsPage() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ delay: i * 0.03 }}
                 >
-                  <Link
-                    href={n.link || "#"}
-                    onClick={() => { if (!n.read) updateDoc(doc(db, "notifications", n.id), { read: true }); }}
-                    className={`flex items-start gap-4 p-4 rounded-2xl border transition-all hover:shadow-md ${!n.read ? NOTIFICATION_COLORS[n.type] || NOTIFICATION_COLORS.default : "bg-white border-secondary-100"}`}
+                  <div
+                    className={`flex items-start gap-4 p-4 rounded-2xl border transition-all hover:shadow-md ${
+                      !n.read
+                        ? NOTIFICATION_COLORS[n.type] || NOTIFICATION_COLORS.default
+                        : "bg-white border-secondary-100"
+                    }`}
                   >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${!n.read ? "bg-white shadow-sm" : "bg-secondary-50"}`}>
-                      {NOTIFICATION_ICONS[n.type] || NOTIFICATION_ICONS.default}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`font-semibold text-sm ${!n.read ? "text-secondary-900" : "text-secondary-600"}`}>{n.title}</p>
-                        {!n.read && <span className="w-2.5 h-2.5 bg-primary-500 rounded-full shrink-0" />}
+                    <Link
+                      href={n.link || "#"}
+                      onClick={() => {
+                        if (!n.read) updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
+                      }}
+                      className="flex items-start gap-4 flex-1 min-w-0"
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          !n.read ? "bg-white shadow-sm" : "bg-secondary-50"
+                        }`}
+                      >
+                        {NOTIFICATION_ICONS[n.type] || NOTIFICATION_ICONS.default}
                       </div>
-                      <p className="text-sm text-secondary-600 mt-0.5">{n.message}</p>
-                      <p className="text-xs text-secondary-400 mt-1.5">
-                        {n.createdAt ? new Date(n.createdAt).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-                      </p>
-                    </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={`font-semibold text-sm ${
+                              !n.read ? "text-secondary-900" : "text-secondary-600"
+                            }`}
+                          >
+                            {n.title}
+                          </p>
+                          {!n.read && <span className="w-2.5 h-2.5 bg-primary-500 rounded-full shrink-0" />}
+                        </div>
+                        <p className="text-sm text-secondary-600 mt-0.5">{n.message}</p>
+                        <p className="text-xs text-secondary-400 mt-1.5">
+                          {n.createdAt
+                            ? new Date(n.createdAt).toLocaleString([], {
+                                weekday: "short",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : ""}
+                        </p>
+                      </div>
+                    </Link>
+
                     <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteDoc(doc(db, "notifications", n.id)); }}
-                      className="p-1.5 hover:bg-red-50 rounded-xl text-secondary-300 hover:text-red-500 transition-colors shrink-0"
-                      title="Delete"
+                      type="button"
+                      onClick={(e) => deleteSingle(n.id, e)}
+                      className="p-2 hover:bg-red-50 rounded-xl text-secondary-400 hover:text-red-500 transition-colors shrink-0 cursor-pointer self-center"
+                      title="Delete notification"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  </Link>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>

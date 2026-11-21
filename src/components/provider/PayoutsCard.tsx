@@ -224,7 +224,7 @@ export default function PayoutsCard({
             </div>
             <div>
               <p className="text-sm font-bold text-secondary-900">
-                {providerData?.bankName || "Chase Checking Account"} (•••• 4242)
+                {providerData?.bankName || "No bank account connected"}
               </p>
               <p className="text-xs text-secondary-500">
                 Automatic rolling transfers enabled via Stripe Connect
@@ -237,10 +237,7 @@ export default function PayoutsCard({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                alert(
-                  "Redirecting to Stripe Express Dashboard where you can update tax info, identity docs, or bank details."
-                )
+              onClick={() => window.location.href = "mailto:promoh321@gmail.com?subject=Payout%20Bank%20Account%20Setup%20-%20Promoh&body=Hi%20Promoh%20Team,%0D%0A%0D%0AI%20would%20like%20to%20set%20up%20my%20payout%20bank%20account.%0D%0A%0D%0AProvider%20Name:%0D%0AAccount%20Details:%0D%0A"
               }
               className="text-xs h-9 border-secondary-300"
             >
@@ -433,7 +430,7 @@ export default function PayoutsCard({
                       <div className="flex justify-between">
                         <span>Destination</span>
                         <span className="font-semibold text-secondary-800">
-                          Chase Bank (•••• 4242)
+                          {providerData?.bankName || "No bank account connected"}
                         </span>
                       </div>
                       <div className="flex justify-between">

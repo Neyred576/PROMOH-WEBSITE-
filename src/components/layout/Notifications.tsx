@@ -3,16 +3,31 @@
 import { useEffect, useState } from "react";
 import { getDb } from "@/lib/firebase/client";
 import {
-  collection, query, where, onSnapshot, orderBy,
-  updateDoc, deleteDoc, doc, writeBatch, limit
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  updateDoc,
+  deleteDoc,
+  doc,
+  limit,
 } from "firebase/firestore";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import {
-  Bell, CheckCheck, Trash2, X, Calendar, MessageSquare,
-  Star, ShieldCheck, ShieldX, CheckCircle, AlertCircle
+  Bell,
+  CheckCheck,
+  Trash2,
+  X,
+  Calendar,
+  MessageSquare,
+  Star,
+  ShieldCheck,
+  ShieldX,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NOTIFICATION_ICONS: Record<string, React.ReactNode> = {
@@ -33,45 +48,101 @@ export default function Notifications() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const db = getDb();
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
       orderBy("createdAt", "desc"),
-      limit(20)
+      limit(25)
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setNotifications(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => {
+        console.warn("Notifications listener warning:", err);
+      }
+    );
 
     return () => unsub();
-  }, [user]);
+  }, [user?.uid]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllRead = async () => {
-    const db = getDb();
-    const batch = writeBatch(db);
-    notifications.forEach(n => {
-      if (!n.read) batch.update(doc(db, "notifications", n.id), { read: true });
-    });
-    await batch.commit();
+  // Mark all notifications as read (optimistic + parallel writes)
+  const markAllRead = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+
+    // Instant optimistic update
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    try {
+      const db = getDb();
+      await Promise.allSettled(
+        unread.map((n) =>
+          updateDoc(doc(db, "notifications", n.id), { read: true }).catch((err) =>
+            console.warn("Failed to mark notification read:", n.id, err)
+          )
+        )
+      );
+    } catch (err) {
+      console.error("markAllRead error:", err);
+    }
   };
 
   const markRead = (id: string) => {
-    updateDoc(doc(getDb(), "notifications", id), { read: true });
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    updateDoc(doc(getDb(), "notifications", id), { read: true }).catch(() => {});
   };
 
+  // Delete single notification (optimistic + separate event)
   const deleteNotification = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDeletingId(id);
+
+    // Instant optimistic removal from UI
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+
     try {
-      await deleteDoc(doc(getDb(), "notifications", id));
+      const db = getDb();
+      await deleteDoc(doc(db, "notifications", id));
+    } catch (err) {
+      console.error("Failed to delete notification:", id, err);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (notifications.length === 0) return;
+
+    const toDelete = [...notifications];
+    setNotifications([]);
+
+    try {
+      const db = getDb();
+      await Promise.allSettled(
+        toDelete.map((n) =>
+          deleteDoc(doc(db, "notifications", n.id)).catch((err) =>
+            console.warn("Failed to clear notification:", n.id, err)
+          )
+        )
+      );
+    } catch (err) {
+      console.error("clearAllNotifications error:", err);
     }
   };
 
@@ -115,21 +186,39 @@ export default function Notifications() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-secondary-100 bg-gradient-to-r from-primary-50 to-indigo-50">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-primary-600" />
-                  <h3 className="font-bold text-secondary-900">Notifications</h3>
+                  <h3 className="font-bold text-secondary-900 text-sm">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span className="text-xs bg-primary-600 text-white px-2 py-0.5 rounded-full font-medium">{unreadCount} new</span>
+                    <span className="text-xs bg-primary-600 text-white px-2 py-0.5 rounded-full font-medium">
+                      {unreadCount} new
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {unreadCount > 0 && (
                     <button
+                      type="button"
                       onClick={markAllRead}
-                      className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                      className="text-xs text-primary-600 hover:text-primary-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                      title="Mark all notifications as read"
                     >
                       <CheckCheck className="w-3.5 h-3.5" /> Mark all read
                     </button>
                   )}
-                  <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-secondary-100 rounded-lg text-secondary-400 hover:text-secondary-700">
+                  {notifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAllNotifications}
+                      className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer ml-1"
+                      title="Delete all notifications"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Clear
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="p-1 hover:bg-secondary-100 rounded-lg text-secondary-400 hover:text-secondary-700 cursor-pointer ml-1"
+                  >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -144,35 +233,71 @@ export default function Notifications() {
                     <p className="text-xs text-secondary-400 mt-1">No notifications yet.</p>
                   </div>
                 ) : (
-                  notifications.map(n => (
-                    <Link
+                  notifications.map((n) => (
+                    <div
                       key={n.id}
-                      href={n.link || "#"}
-                      onClick={() => { markRead(n.id); setIsOpen(false); }}
-                      className={`flex items-start gap-3 px-4 py-3 hover:bg-secondary-50 transition-colors group ${!n.read ? "bg-primary-50/40" : ""}`}
+                      className={`flex items-start gap-3 px-4 py-3 hover:bg-secondary-50 transition-colors group ${
+                        !n.read ? "bg-primary-50/40" : ""
+                      }`}
                     >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${!n.read ? "bg-white shadow-sm" : "bg-secondary-50"}`}>
-                        {NOTIFICATION_ICONS[n.type] || NOTIFICATION_ICONS.default}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`text-sm font-medium truncate ${!n.read ? "text-secondary-900" : "text-secondary-600"}`}>{n.title}</p>
-                          {!n.read && <span className="w-2 h-2 bg-primary-500 rounded-full shrink-0" />}
+                      {/* Clickable notification content */}
+                      <Link
+                        href={n.link || "#"}
+                        onClick={() => {
+                          markRead(n.id);
+                          setIsOpen(false);
+                        }}
+                        className="flex items-start gap-3 flex-1 min-w-0"
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                            !n.read ? "bg-white shadow-xs" : "bg-secondary-50"
+                          }`}
+                        >
+                          {NOTIFICATION_ICONS[n.type] || NOTIFICATION_ICONS.default}
                         </div>
-                        <p className="text-xs text-secondary-500 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-secondary-400 mt-1">
-                          {n.createdAt ? new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-                        </p>
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p
+                              className={`text-sm font-medium truncate ${
+                                !n.read ? "text-secondary-900 font-semibold" : "text-secondary-600"
+                              }`}
+                            >
+                              {n.title}
+                            </p>
+                            {!n.read && (
+                              <span className="w-2 h-2 bg-primary-500 rounded-full shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-xs text-secondary-500 mt-0.5 line-clamp-2">{n.message}</p>
+                          <p className="text-[10px] text-secondary-400 mt-1">
+                            {n.createdAt
+                              ? new Date(n.createdAt).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
+                          </p>
+                        </div>
+                      </Link>
+
+                      {/* Delete notification button (OUTSIDE <Link> to prevent event cancellation) */}
                       <button
+                        type="button"
                         onClick={(e) => deleteNotification(n.id, e)}
                         disabled={deletingId === n.id}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded-lg text-secondary-300 hover:text-red-500 transition-all shrink-0"
+                        className="p-1.5 rounded-lg text-secondary-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0 cursor-pointer self-center"
                         title="Delete notification"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {deletingId === n.id ? (
+                          <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
-                    </Link>
+                    </div>
                   ))
                 )}
               </div>
@@ -182,9 +307,9 @@ export default function Notifications() {
                 <Link
                   href="/notifications"
                   onClick={() => setIsOpen(false)}
-                  className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                  className="block text-center text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors"
                 >
-                  View All Notifications →
+                  View All Notifications &rarr;
                 </Link>
               </div>
             </motion.div>

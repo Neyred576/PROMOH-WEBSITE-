@@ -5,6 +5,12 @@ import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import { HeroInteractive, ExploreCategoriesGrid, FeaturedProvidersSection } from "@/components/home/HomeClientWidgets";
 import { HowItWorks } from "@/components/home/HowItWorks";
+import {
+  PopularCitiesBar,
+  WhyChooseUsSection,
+  BecomeProviderBanner,
+  FaqAccordionSection,
+} from "@/components/home/HomeTrustFaq";
 
 export const metadata = {
   title: "Promoh | Find Trusted Professionals Anywhere",
@@ -41,6 +47,7 @@ export default function Home() {
 
           {/* Client-side search and pills */}
           <HeroInteractive />
+          <PopularCitiesBar />
         </div>
       </section>
 
@@ -105,6 +112,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Why Choose Promoh (Trust & Safety) */}
+      <WhyChooseUsSection />
+
       {/* Featured Providers */}
       <section className="py-24 bg-white relative">
         <div className="absolute right-0 top-0 w-1/3 h-full bg-gradient-to-l from-primary-50/50 to-transparent pointer-events-none" />
@@ -124,6 +134,12 @@ export default function Home() {
           <FeaturedProvidersSection />
         </div>
       </section>
+
+      {/* Become a Provider Growth Banner */}
+      <BecomeProviderBanner />
+
+      {/* Frequently Asked Questions */}
+      <FaqAccordionSection />
 
       {/* Footer */}
       <footer className="bg-white border-t border-secondary-200 text-secondary-600 py-16 relative overflow-hidden">

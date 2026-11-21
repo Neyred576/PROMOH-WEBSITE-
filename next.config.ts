@@ -9,16 +9,12 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
+        hostname: '**',
       },
       {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
+        protocol: 'http',
+        hostname: '**',
       },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      }
     ],
   },
   // Prevent Firebase client SDK from being bundled into the server/edge runtime.
@@ -35,7 +31,7 @@ const nextConfig: NextConfig = {
     "@firebase/storage",
   ],
   experimental: {
-    optimizePackageImports: ["lucide-react", "recharts"],
+    optimizePackageImports: ["lucide-react", "recharts", "framer-motion", "date-fns"],
   },
 };
 

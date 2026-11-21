@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { db } from "@/lib/firebase/client";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { COUNTRIES } from "@/lib/currencies";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -16,8 +17,10 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import BeforeAfterSlider, { BeforeAfterProject } from "@/components/ui/BeforeAfterSlider";
+import { uploadImageWithFallback } from "@/lib/imageUtils";
+import PhoneInput from "@/components/ui/PhoneInput";
 
-const IMGBB_KEY = "3a8672d6f05b114ce3c0c6e81c8bd9fe";
+const IMGBB_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY || "3a8672d6f05b114ce3c0c6e81c8bd9fe";
 
 const BANNER_PRESETS = [
   { name: "Modern Violet", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1400&q=80" },
@@ -36,15 +39,8 @@ interface ServiceCard {
 }
 
 async function uploadToImgBB(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("image", file);
-  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
-    method: "POST",
-    body: form,
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error("ImgBB upload failed");
-  return data.data.url as string;
+  const res = await uploadImageWithFallback(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.82 });
+  return res.url;
 }
 
 export default function ProviderProfilePage() {
@@ -116,22 +112,46 @@ export default function ProviderProfilePage() {
         if (snap.exists()) {
           const data = snap.data();
           setFormData({
-            businessName: data.businessName || "",
+            businessName: data.businessName || user.displayName || "",
             description: data.description || "",
             servicesOffered: data.servicesOffered || "",
             location: data.location || "",
             phone: data.phone || "",
             hourlyRate: data.hourlyRate || "",
-            photoURL: data.photoURL || "",
+            photoURL: data.photoURL || user.photoURL || "",
             bannerURL: data.bannerURL || "",
             currency: data.currency || "USD",
           });
           setPortfolioURLs(data.portfolioURLs || []);
           setServiceCards(data.serviceCards || []);
           setBeforeAfterProjects(data.beforeAfterProjects || []);
+        } else {
+          try {
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            const uData = userSnap.exists() ? userSnap.data() : null;
+            setFormData(prev => ({
+              ...prev,
+              businessName: uData?.displayName || user.displayName || "",
+              phone: uData?.phoneNumber || uData?.phone || "",
+              photoURL: uData?.photoURL || user.photoURL || "",
+            }));
+          } catch {
+            setFormData(prev => ({
+              ...prev,
+              businessName: user.displayName || "",
+              phone: "",
+              photoURL: user.photoURL || "",
+            }));
+          }
         }
       } catch (e) {
         console.error("Error loading profile", e);
+        setFormData(prev => ({
+          ...prev,
+          businessName: user.displayName || "",
+          phone: "",
+          photoURL: user.photoURL || "",
+        }));
       } finally {
         setLoading(false);
       }
@@ -148,13 +168,13 @@ export default function ProviderProfilePage() {
     if (!user?.uid) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, "providers", user.uid), {
+      await setDoc(doc(db, "providers", user.uid), {
         ...formData,
         portfolioURLs,
         serviceCards,
         beforeAfterProjects,
         updatedAt: new Date().toISOString(),
-      });
+      }, { merge: true });
       showMsg("Profile saved successfully!");
     } catch {
       showMsg("Failed to save profile. Please try again.", false);
@@ -171,7 +191,7 @@ export default function ProviderProfilePage() {
     try {
       const url = await uploadToImgBB(file);
       setFormData(prev => ({ ...prev, photoURL: url }));
-      if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { photoURL: url });
+      if (user?.uid) await setDoc(doc(db, "providers", user.uid), { photoURL: url }, { merge: true });
       showMsg("Photo uploaded!");
     } catch {
       showMsg("Photo upload failed.", false);
@@ -188,7 +208,7 @@ export default function ProviderProfilePage() {
     try {
       const url = await uploadToImgBB(file);
       setFormData(prev => ({ ...prev, bannerURL: url }));
-      if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { bannerURL: url });
+      if (user?.uid) await setDoc(doc(db, "providers", user.uid), { bannerURL: url }, { merge: true });
       showMsg("Banner cover uploaded!");
     } catch {
       showMsg("Banner upload failed.", false);
@@ -199,13 +219,13 @@ export default function ProviderProfilePage() {
 
   const setBannerPreset = async (url: string) => {
     setFormData(prev => ({ ...prev, bannerURL: url }));
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { bannerURL: url });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { bannerURL: url }, { merge: true });
     showMsg("Banner preset applied!");
   };
 
   const removeBanner = async () => {
     setFormData(prev => ({ ...prev, bannerURL: "" }));
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { bannerURL: "" });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { bannerURL: "" }, { merge: true });
     showMsg("Banner removed (defaults to sleek gradient).");
   };
 
@@ -256,7 +276,7 @@ export default function ProviderProfilePage() {
     };
     const updated = [...beforeAfterProjects, project];
     setBeforeAfterProjects(updated);
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { beforeAfterProjects: updated });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { beforeAfterProjects: updated }, { merge: true });
     setShowTransformationForm(false);
     setNewTransformation({ title: "", category: "", description: "", beforeURL: "", afterURL: "" });
     showMsg("Transformation project saved!");
@@ -265,7 +285,7 @@ export default function ProviderProfilePage() {
   const removeTransformation = async (id: string) => {
     const updated = beforeAfterProjects.filter(p => p.id !== id);
     setBeforeAfterProjects(updated);
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { beforeAfterProjects: updated });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { beforeAfterProjects: updated }, { merge: true });
     showMsg("Transformation removed.");
   };
 
@@ -281,7 +301,7 @@ export default function ProviderProfilePage() {
       const urls = await Promise.all(arr.map(f => uploadToImgBB(f)));
       const updated = [...portfolioURLs, ...urls];
       setPortfolioURLs(updated);
-      if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { portfolioURLs: updated });
+      if (user?.uid) await setDoc(doc(db, "providers", user.uid), { portfolioURLs: updated }, { merge: true });
       showMsg(`${urls.length} photo${urls.length > 1 ? "s" : ""} uploaded!`);
     } catch {
       showMsg("Some photos failed to upload.", false);
@@ -303,7 +323,7 @@ export default function ProviderProfilePage() {
   const removePortfolioPhoto = async (index: number) => {
     const updated = portfolioURLs.filter((_, i) => i !== index);
     setPortfolioURLs(updated);
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { portfolioURLs: updated });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { portfolioURLs: updated }, { merge: true });
   };
 
   // ── Service cards ──
@@ -319,7 +339,7 @@ export default function ProviderProfilePage() {
       updated = [...serviceCards, card];
     }
     setServiceCards(updated);
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { serviceCards: updated });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { serviceCards: updated }, { merge: true });
     setShowServiceForm(false);
     setEditingService(null);
     setNewService({ title: "", description: "", duration: "", price: "", priceType: "fixed" });
@@ -329,7 +349,7 @@ export default function ProviderProfilePage() {
   const removeService = async (id: string) => {
     const updated = serviceCards.filter(s => s.id !== id);
     setServiceCards(updated);
-    if (user?.uid) await updateDoc(doc(db, "providers", user.uid), { serviceCards: updated });
+    if (user?.uid) await setDoc(doc(db, "providers", user.uid), { serviceCards: updated }, { merge: true });
   };
 
   const startEditService = (s: ServiceCard) => {
@@ -366,13 +386,17 @@ export default function ProviderProfilePage() {
           <h1 className="text-3xl font-bold tracking-tight">Business Profile</h1>
           <p className="text-secondary-600 mt-1">Manage your public profile, cover banner, services, and portfolio.</p>
         </div>
-        <Link
-          href={`/provider/${user?.uid}`}
-          target="_blank"
-          className="flex items-center gap-2 text-sm text-primary-600 font-medium hover:underline"
-        >
-          View Public Page <ExternalLink className="w-4 h-4" />
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/provider/${user?.uid}`}
+            target="_blank"
+          >
+            <Button variant="outline" size="sm" className="gap-2 font-semibold border-secondary-300 hover:bg-secondary-50">
+              <ExternalLink className="w-4 h-4 text-primary-600" />
+              Preview Public Profile
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Section tabs */}
@@ -409,7 +433,7 @@ export default function ProviderProfilePage() {
                 {/* Banner Preview with Avatar Overlay */}
                 <div className="relative h-44 rounded-2xl overflow-hidden border border-secondary-200 bg-secondary-100 shadow-xs">
                   {formData.bannerURL ? (
-                    <Image src={formData.bannerURL} alt="Cover Banner" fill className="object-cover" />
+                    <Image src={formData.bannerURL} alt="Cover Banner" fill className="object-cover" unoptimized />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-r from-primary-600 via-primary-500 to-indigo-600 flex items-center justify-center">
                       <span className="text-white/80 text-xs font-semibold uppercase tracking-wider">Default Modern Gradient</span>
@@ -422,7 +446,7 @@ export default function ProviderProfilePage() {
                   <div className="absolute bottom-3 left-4 flex items-center gap-3">
                     <div className="w-14 h-14 rounded-xl border-2 border-white shadow-md overflow-hidden bg-white relative">
                       {formData.photoURL ? (
-                        <Image src={formData.photoURL} alt="Avatar" fill className="object-cover" />
+                        <Image src={formData.photoURL} alt="Avatar" fill className="object-cover" unoptimized />
                       ) : (
                         <div className="w-full h-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold">
                           {(formData.businessName || "P")[0]?.toUpperCase()}
@@ -497,7 +521,7 @@ export default function ProviderProfilePage() {
                 <div className="flex items-center gap-6">
                   <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-secondary-100 border-2 border-secondary-200 shrink-0">
                     {formData.photoURL ? (
-                      <Image src={formData.photoURL} alt="Profile" fill className="object-cover" />
+                      <Image src={formData.photoURL} alt="Profile" fill className="object-cover" unoptimized />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-secondary-400">
                         <Camera className="w-8 h-8" />
@@ -553,8 +577,19 @@ export default function ProviderProfilePage() {
                     <Input name="location" value={formData.location} onChange={handleChange} placeholder="e.g. Nairobi, Kenya" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Contact Phone</label>
-                    <Input name="phone" value={formData.phone} onChange={handleChange} placeholder="+254 700 000 000" />
+                    <label className="text-sm font-medium">Contact Phone (Global)</label>
+                    <PhoneInput
+                      country="KE"
+                      phoneNumber={formData.phone}
+                      onCountryChange={(_code, dial) => {
+                        // Keep dial code in phone or update prefix
+                        if (!formData.phone.startsWith(dial)) {
+                          setFormData((prev) => ({ ...prev, phone: `${dial} ${prev.phone}`.trim() }));
+                        }
+                      }}
+                      onPhoneChange={(val) => setFormData((prev) => ({ ...prev, phone: val }))}
+                      placeholder="700 000 000"
+                    />
                   </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -811,7 +846,7 @@ export default function ProviderProfilePage() {
                         animate={{ opacity: 1, scale: 1 }}
                         className="relative aspect-square rounded-xl overflow-hidden bg-secondary-100 border border-secondary-200 group"
                       >
-                        <Image src={url} alt={`Portfolio ${i + 1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <Image src={url} alt={`Portfolio ${i + 1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
                           <button
                             type="button"
@@ -951,6 +986,7 @@ export default function ProviderProfilePage() {
                                 alt="Before Preview"
                                 fill
                                 className="object-cover"
+                                unoptimized
                               />
                               <button
                                 type="button"
@@ -997,6 +1033,7 @@ export default function ProviderProfilePage() {
                                 alt="After Preview"
                                 fill
                                 className="object-cover"
+                                unoptimized
                               />
                               <button
                                 type="button"

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/Button";
 import { CheckCircle, AlertCircle, Upload, Phone, Mail } from "lucide-react";
 import { db } from "@/lib/firebase/client";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 
 export default function VerificationCenterPage() {
   const { user } = useAuth();
@@ -41,7 +41,7 @@ export default function VerificationCenterPage() {
     formData.append("image", file);
 
     try {
-      const res = await fetch("https://api.imgbb.com/1/upload?key=3a8672d6f05b114ce3c0c6e81c8bd9fe", {
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${process.env.NEXT_PUBLIC_IMGBB_KEY || "3a8672d6f05b114ce3c0c6e81c8bd9fe"}`, {
         method: "POST",
         body: formData,
       });
@@ -50,7 +50,7 @@ export default function VerificationCenterPage() {
         setDocumentUrl(data.data.url);
         // Automatically save the URL to Firestore so they don't lose it if they refresh
         if (user?.uid) {
-          await updateDoc(doc(db, "providers", user.uid), { verificationDocumentUrl: data.data.url });
+          await setDoc(doc(db, "providers", user.uid), { verificationDocumentUrl: data.data.url }, { merge: true });
         }
       } else {
         alert("Failed to upload document.");
@@ -65,9 +65,9 @@ export default function VerificationCenterPage() {
 
   const handleDocumentSubmit = async () => {
     if (!user?.uid || !documentUrl) return;
-    await updateDoc(doc(db, "providers", user.uid), {
+    await setDoc(doc(db, "providers", user.uid), {
       status: "Under Review"
-    });
+    }, { merge: true });
     setStatus("Under Review");
     alert("Documents submitted for review!");
   };

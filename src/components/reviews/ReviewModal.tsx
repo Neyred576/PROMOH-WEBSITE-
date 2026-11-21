@@ -19,6 +19,12 @@ interface ReviewModalProps {
 export default function ReviewModal({ bookingId, providerId, customerId, customerName, onClose, onSuccess }: ReviewModalProps) {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
+  const [subRatings, setSubRatings] = useState({
+    punctuality: 5,
+    quality: 5,
+    communication: 5,
+    value: 5,
+  });
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,19 +35,31 @@ export default function ReviewModal({ bookingId, providerId, customerId, custome
     setLoading(true);
 
     try {
-      // 1. Add review doc
+      // 1. Add review doc with subRatings
       await addDoc(collection(db, "reviews"), {
         bookingId,
         providerId,
         customerId,
         customerName,
         rating,
+        subRatings,
         comment,
         createdAt: new Date().toISOString(),
       });
 
       // 2. Mark booking as reviewed
       await updateDoc(doc(db, "bookings", bookingId), { reviewed: true });
+
+      // 3b. Notify provider of new review
+      await addDoc(collection(db, "notifications"), {
+        userId: providerId,
+        title: "⭐ New Review Received",
+        message: `${customerName || "A customer"} left you a ${rating}-star review.`,
+        link: "/provider/dashboard",
+        type: "review_received",
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
 
       // 3. Recalculate provider average rating (Transaction to ensure consistency)
       const providerRef = doc(db, "providers", providerId);
@@ -104,6 +122,38 @@ export default function ReviewModal({ bookingId, providerId, customerId, custome
             </div>
 
             <div>
+              <label className="text-sm font-medium block mb-2 text-secondary-700">Detailed Feedback</label>
+              <div className="grid grid-cols-2 gap-3 p-3 bg-secondary-50 rounded-xl border border-secondary-200 mb-4">
+                {[
+                  { key: "punctuality" as const, label: "Punctuality" },
+                  { key: "quality" as const, label: "Quality" },
+                  { key: "communication" as const, label: "Communication" },
+                  { key: "value" as const, label: "Value" },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between text-xs">
+                    <span className="text-secondary-600 font-medium">{label}</span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setSubRatings((prev) => ({ ...prev, [key]: s }))}
+                          className="focus:outline-none"
+                        >
+                          <Star
+                            className={`w-3.5 h-3.5 ${
+                              subRatings[key] >= s
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-secondary-300"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <label className="text-sm font-medium block mb-2 text-secondary-700">Add a comment (Optional)</label>
               <textarea
                 value={comment}

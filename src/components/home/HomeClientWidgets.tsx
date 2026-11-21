@@ -155,13 +155,14 @@ export function ExploreCategoriesGrid() {
     const unsubSettings = onSnapshot(doc(db, "platform_settings", "homepage"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.exploreCategories) {
-          setActiveExploreCategories(data.exploreCategories);
-        } else {
-          setActiveExploreCategories(Object.keys(defaultCategoryMap).map(name => ({ name, slug: name })));
-        }
+        // Prefer `exploreCategories`; fall back to visible `categories`; last resort: defaults
+        const raw: { name: string; slug: string; hidden?: boolean }[] =
+          data.exploreCategories ||
+          data.categories ||
+          Object.keys(defaultCategoryMap).map((name) => ({ name, slug: name }));
+        setActiveExploreCategories(raw.filter((c) => !c.hidden));
       } else {
-        setActiveExploreCategories(Object.keys(defaultCategoryMap).map(name => ({ name, slug: name })));
+        setActiveExploreCategories(Object.keys(defaultCategoryMap).map((name) => ({ name, slug: name })));
       }
     });
     return () => unsubSettings();

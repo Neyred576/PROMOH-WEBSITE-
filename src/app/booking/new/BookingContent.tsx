@@ -4,13 +4,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { db } from "@/lib/firebase/client";
-import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc, increment } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   CheckCircle, CalendarCheck, ArrowLeft, Clock, MapPin,
-  ShieldCheck, Star, User, FileText, DollarSign, AlertCircle
+  ShieldCheck, Star, User, FileText, DollarSign, AlertCircle,
+  Tag, Sparkles, X, Check
 } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
@@ -38,6 +39,12 @@ interface ProviderData {
   rating?: number;
   isVerified?: boolean;
   description?: string;
+  availability?: {
+    isAcceptingBookings?: boolean;
+    workingDays?: string[];
+    startHour?: string;
+    endHour?: string;
+  };
 }
 
 const TIME_SLOTS = [
@@ -71,6 +78,13 @@ export default function NewBookingContent() {
   const [success, setSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
   const [error, setError] = useState("");
+  const [dateWarning, setDateWarning] = useState("");
+
+  // Promo code state
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<any | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoMessage, setPromoMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     const serviceFromParam = searchParams.get("service");
@@ -106,11 +120,70 @@ export default function NewBookingContent() {
   );
 
   const today = new Date().toISOString().split("T")[0];
+  const basePriceNum = matchedService?.price ?? (provider?.hourlyRate ? parseFloat(provider.hourlyRate) : 0);
+
+  let discountAmount = 0;
+  if (appliedPromo && basePriceNum > 0) {
+    if (appliedPromo.discountType === "percentage") {
+      discountAmount = Math.round(((basePriceNum * appliedPromo.discountValue) / 100) * 100) / 100;
+    } else {
+      discountAmount = Math.min(basePriceNum, appliedPromo.discountValue);
+    }
+  }
+  const finalPriceNum = Math.max(0, basePriceNum - discountAmount);
+
   const estimatedCost = matchedService
     ? `$${matchedService.price}${matchedService.pricingType === "hourly" ? "/hr" : " (fixed)"}`
     : provider?.hourlyRate
     ? `$${provider.hourlyRate}/hr`
     : "TBD";
+
+  const handleApplyPromo = async () => {
+    if (!promoCodeInput.trim()) return;
+    setPromoLoading(true);
+    setPromoMessage(null);
+    try {
+      const codeUpper = promoCodeInput.trim().toUpperCase();
+      const q = query(collection(db, "promocodes"), where("code", "==", codeUpper));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        setPromoMessage({ text: "Promo code not found. Please check and try again.", ok: false });
+        setPromoLoading(false);
+        return;
+      }
+      const promoData = { id: snap.docs[0].id, ...snap.docs[0].data() } as any;
+      if (promoData.isActive === false) {
+        setPromoMessage({ text: "This promo code is currently disabled.", ok: false });
+        setPromoLoading(false);
+        return;
+      }
+      if (promoData.expiresAt && new Date(promoData.expiresAt).getTime() < Date.now()) {
+        setPromoMessage({ text: "This promo code has expired.", ok: false });
+        setPromoLoading(false);
+        return;
+      }
+      if (promoData.maxUses > 0 && promoData.usedCount >= promoData.maxUses) {
+        setPromoMessage({ text: "This promo code has reached its maximum usage limit.", ok: false });
+        setPromoLoading(false);
+        return;
+      }
+      setAppliedPromo(promoData);
+      setPromoMessage({
+        text: `Code ${promoData.code} applied! ${promoData.discountType === "percentage" ? `${promoData.discountValue}% OFF` : `$${promoData.discountValue} OFF`}`,
+        ok: true,
+      });
+    } catch (err: any) {
+      setPromoMessage({ text: "Failed to validate promo code.", ok: false });
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCodeInput("");
+    setPromoMessage(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,9 +208,25 @@ export default function NewBookingContent() {
         address,
         status: "pending",
         estimatedRate: matchedService ? String(matchedService.price) : (provider?.hourlyRate || "0"),
+        promoCode: appliedPromo ? appliedPromo.code : null,
+        promoDiscountType: appliedPromo ? appliedPromo.discountType : null,
+        promoDiscountValue: appliedPromo ? appliedPromo.discountValue : null,
+        discountAmount: appliedPromo ? discountAmount : 0,
+        finalEstimatedRate: appliedPromo && basePriceNum > 0 ? String(finalPriceNum) : null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      // Increment promo usage counter if applied
+      if (appliedPromo?.id) {
+        try {
+          await updateDoc(doc(db, "promocodes", appliedPromo.id), {
+            usedCount: increment(1)
+          });
+        } catch (e) {
+          console.error("Could not increment promo count:", e);
+        }
+      }
 
       // Notify provider
       await addDoc(collection(db, "notifications"), {
@@ -225,6 +314,12 @@ export default function NewBookingContent() {
                       <AlertCircle className="w-4 h-4 shrink-0" />{error}
                     </div>
                   )}
+                  {provider?.availability?.isAcceptingBookings === false && (
+                    <div className="p-3 bg-amber-50 text-amber-800 text-sm rounded-xl border border-amber-200 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>This professional is currently not accepting new bookings.</span>
+                    </div>
+                  )}
                   {!user && (
                     <div className="p-4 bg-amber-50 text-amber-700 text-sm rounded-xl border border-amber-200">
                       You must be logged in to book. <Link href="/login" className="font-semibold underline">Log in here</Link>.
@@ -281,11 +376,35 @@ export default function NewBookingContent() {
                       id="booking-date"
                       type="date"
                       value={date}
-                      onChange={e => setDate(e.target.value)}
+                      onChange={e => {
+                        const newDate = e.target.value;
+                        setDate(newDate);
+                        if (newDate) {
+                          const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                          const dayName = days[new Date(newDate + "T12:00:00").getDay()];
+                          if (
+                            provider?.availability?.workingDays &&
+                            provider.availability.workingDays.length > 0 &&
+                            !provider.availability.workingDays.includes(dayName)
+                          ) {
+                            setDateWarning(`Note: ${provider.businessName || "This provider"} normally doesn't work on ${dayName}s (Working days: ${provider.availability.workingDays.join(", ")}).`);
+                          } else {
+                            setDateWarning("");
+                          }
+                        } else {
+                          setDateWarning("");
+                        }
+                      }}
                       required
                       min={today}
                       className="bg-white"
                     />
+                    {dateWarning && (
+                      <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200 mt-2 flex items-start gap-1.5">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                        <span>{dateWarning}</span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Time Slots */}
@@ -335,6 +454,70 @@ export default function NewBookingContent() {
                       className="flex w-full rounded-xl border border-secondary-300 bg-white px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:border-primary-500 focus-visible:ring-primary-500/20 placeholder:text-secondary-400 resize-none"
                     />
                     <p className="text-xs text-secondary-400 mt-1">{notes.length}/500 characters</p>
+                  </div>
+
+                  {/* Promo Code Input */}
+                  <div className="p-4 bg-secondary-50 border border-secondary-200 rounded-2xl">
+                    <label className="text-sm font-semibold flex items-center gap-1.5 text-secondary-800 mb-2">
+                      <Tag className="w-4 h-4 text-primary-600" /> Have a Promo Code?
+                    </label>
+                    {appliedPromo ? (
+                      <div className="flex items-center justify-between bg-white border border-emerald-200 rounded-xl p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
+                          <div>
+                            <span className="font-mono font-bold text-sm text-emerald-800">
+                              {appliedPromo.code}
+                            </span>
+                            <span className="text-xs text-secondary-500 ml-2">
+                              ({appliedPromo.discountType === "percentage" ? `${appliedPromo.discountValue}% off` : `$${appliedPromo.discountValue} off`})
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemovePromo}
+                          className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Enter promo code (e.g. WELCOME10)"
+                            value={promoCodeInput}
+                            onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                            className="bg-white uppercase font-mono tracking-wider text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleApplyPromo}
+                            isLoading={promoLoading}
+                            disabled={!promoCodeInput.trim()}
+                            className="shrink-0"
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                        {promoMessage && (
+                          <p
+                            className={`text-xs mt-2 font-medium flex items-center gap-1 ${
+                              promoMessage.ok ? "text-emerald-600" : "text-rose-600"
+                            }`}
+                          >
+                            {promoMessage.ok ? <Sparkles className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                            {promoMessage.text}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <Button id="confirm-booking-btn" type="submit" className="w-full" size="lg" isLoading={loading} disabled={!user || !date || !time}>
@@ -388,12 +571,30 @@ export default function NewBookingContent() {
                     </div>
 
                     <div className="border-t border-secondary-100 pt-4 space-y-3 text-sm">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-baseline">
                         <span className="text-secondary-500 flex items-center gap-1">
                           <DollarSign className="w-3.5 h-3.5" /> Rate
                         </span>
-                        <span className="font-bold text-primary-700">{estimatedCost}</span>
+                        <span className={`font-bold ${appliedPromo && discountAmount > 0 ? "line-through text-secondary-400 text-xs" : "text-primary-700"}`}>
+                          {estimatedCost}
+                        </span>
                       </div>
+                      {appliedPromo && discountAmount > 0 && (
+                        <div className="flex justify-between items-center text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-1.5 rounded-lg border border-emerald-200">
+                          <span className="flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> {appliedPromo.code}
+                          </span>
+                          <span>-${discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {appliedPromo && discountAmount > 0 && (
+                        <div className="flex justify-between items-baseline pt-2 border-t border-dashed border-secondary-200">
+                          <span className="font-bold text-secondary-900 text-xs uppercase tracking-wider">Est. Total</span>
+                          <span className="text-lg font-black text-emerald-700">
+                            ${finalPriceNum.toFixed(2)}{matchedService?.pricingType === "hourly" ? "/hr" : ""}
+                          </span>
+                        </div>
+                      )}
                       {date && (
                         <div className="flex justify-between">
                           <span className="text-secondary-500 flex items-center gap-1">

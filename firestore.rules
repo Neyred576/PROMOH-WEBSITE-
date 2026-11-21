@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "admin@promoh.com" ||
+        request.auth.token.email == "superadmin@promoh.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin")
+      );
+    }
+
+    // Providers collection:
+    // Anyone can read (needed for public search/discovery on the site),
+    // Providers can create and update their own document; admins full access.
+    match /providers/{providerId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.auth.uid == providerId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == providerId);
+      allow delete: if isAdmin();
+    }
+
+    // Users collection:
+    // Authenticated users can read and update their own document; admins full access.
+    match /users/{userId} {
+      allow read: if isAuthenticated() || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    // Bookings:
+    // Authenticated users can create and interact with bookings; admins full access.
+    match /bookings/{bookingId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Platform settings (CMS, categories, announcements):
+    // Public read for homepage, admin write.
+    match /platform_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Notifications:
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Reports & Disputes:
+    match /reports/{reportId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+    match /disputes/{disputeId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Admin audit logs:
+    match /admin_audit_logs/{logId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Reviews:
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isAuthenticated() || isAdmin();
+    }
+
+    // Promo codes:
+    match /promocodes/{codeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Payouts:
+    match /payouts/{payoutId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Direct chats between customers and providers
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() || isAdmin();
+      }
+    }
+
+    // Admin direct support channels
+    match /adminChats/{userId} {
+      allow read, write: if isAuthenticated() || isAdmin();
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() || isAdmin();
+      }
+    }
+
+    // Admin master override for any unlisted collection
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

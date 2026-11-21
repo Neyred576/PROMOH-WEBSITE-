@@ -4,13 +4,42 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShieldCheck, Menu, X, MessageSquare } from "lucide-react";
 import Notifications from "./Notifications";
+import { db } from "@/lib/firebase/client";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUnreadChatCount(0);
+      return;
+    }
+    const q = query(
+      collection(db, "chats"),
+      where("participantIds", "array-contains", user.uid)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      let count = 0;
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        if (
+          data.lastMessageSenderId &&
+          data.lastMessageSenderId !== user.uid &&
+          (!data.readBy || !data.readBy.includes(user.uid))
+        ) {
+          count++;
+        }
+      });
+      setUnreadChatCount(count);
+    });
+    return () => unsub();
+  }, [user?.uid]);
 
   const handleSignOut = async () => { await signOut(); };
 
@@ -29,11 +58,19 @@ export default function Navbar() {
           {user ? (
             <>
               <Link href="/chat">
-                <Button variant="ghost" size="sm" className="px-2">
+                <Button variant="ghost" size="sm" className="px-2 relative">
                   <MessageSquare className="w-5 h-5 text-secondary-600" />
+                  {unreadChatCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-xs border-2 border-white animate-pulse">
+                      {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                    </span>
+                  )}
                 </Button>
               </Link>
               <Notifications />
+              <Link href="/payments">
+                <Button variant="ghost" size="sm" title="Payment History">Payments</Button>
+              </Link>
               <Link href={user.role === "admin" ? "/admin/dashboard" : user.role === "provider" ? "/provider/dashboard" : "/dashboard"}>
                 <Button variant="ghost">Dashboard</Button>
               </Link>
@@ -56,7 +93,23 @@ export default function Navbar() {
           <Link href="/online-jobs" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Online Jobs</Link>
           <Link href="/provider/register" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Become a Provider</Link>
           {user ? (
-            <Button variant="outline" className="w-full" onClick={handleSignOut}>Log Out</Button>
+            <>
+              <Link href="/chat" className="flex items-center justify-between py-2 text-secondary-700 font-semibold" onClick={() => setMobileOpen(false)}>
+                <span className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary-600" /> Messages</span>
+                {unreadChatCount > 0 && (
+                  <span className="bg-rose-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                    {unreadChatCount} new
+                  </span>
+                )}
+              </Link>
+              <Link href="/payments" className="block py-2 text-secondary-700 font-semibold hover:text-primary-600" onClick={() => setMobileOpen(false)}>
+                💳 Payment History & Receipts
+              </Link>
+              <Link href={user.role === "admin" ? "/admin/dashboard" : user.role === "provider" ? "/provider/dashboard" : "/dashboard"} className="block py-2 text-secondary-700 font-semibold hover:text-primary-600" onClick={() => setMobileOpen(false)}>
+                📊 Dashboard
+              </Link>
+              <Button variant="outline" className="w-full" onClick={handleSignOut}>Log Out</Button>
+            </>
           ) : (
             <>
               <Link href="/login" onClick={() => setMobileOpen(false)}><Button variant="ghost" className="w-full">Log In</Button></Link>

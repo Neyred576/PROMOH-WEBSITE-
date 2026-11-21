@@ -3,7 +3,9 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import GlobalAnnouncementWrapper from "@/components/layout/GlobalAnnouncementWrapper";
 import AuthProviderWrapper from "@/components/providers/AuthProviderWrapper";
-import AIAssistant from "@/components/ui/AIAssistant";
+import RealtimeNotificationListener from "@/components/layout/RealtimeNotificationListener";
+import BackToTop from "@/components/ui/BackToTop";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -38,8 +40,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans text-foreground bg-background">
         <GlobalAnnouncementWrapper />
         <AuthProviderWrapper>
+          <RealtimeNotificationListener />
           {children}
-          <AIAssistant />
+          <BackToTop />
+          <MobileBottomNav />
         </AuthProviderWrapper>
       </body>
     </html>
