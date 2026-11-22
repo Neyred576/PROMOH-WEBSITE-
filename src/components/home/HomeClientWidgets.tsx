@@ -227,7 +227,7 @@ export function FeaturedProvidersSection() {
 
   if (loadingFeatured) {
     return (
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {[1, 2, 3].map((i) => (
           <div key={i} className="rounded-2xl border border-secondary-100 h-[380px] bg-white overflow-hidden shadow-sm relative">
             <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent z-10" />
@@ -257,7 +257,7 @@ export function FeaturedProvidersSection() {
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
       {featuredProviders.map((provider, i) => (
         <motion.div
           key={provider.id}

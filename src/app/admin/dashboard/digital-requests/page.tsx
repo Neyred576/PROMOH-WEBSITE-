@@ -109,19 +109,19 @@ export default function DigitalRequestsAdmin() {
   const completedCount = requests.filter(r => r.status === 'completed').length;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Laptop className="w-6 h-6 text-primary-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Laptop className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
             Digital Work Requests (Validation)
           </h1>
-          <p className="text-gray-500 mt-1">Manage and route concierge digital service requests.</p>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">Manage and route concierge digital service requests.</p>
         </div>
       </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center gap-4">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
             <Laptop className="w-6 h-6" />

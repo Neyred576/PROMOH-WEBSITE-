@@ -20,6 +20,8 @@ import {
   Star,
   Activity,
   Sliders,
+  Menu,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase/client";
@@ -32,7 +34,7 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[2]) : null;
 }
 
-function AdminNav() {
+function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -82,6 +84,7 @@ function AdminNav() {
           <Link
             key={item.label}
             href={item.href}
+            onClick={() => onNavigate?.()}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-xs font-semibold ${
               isActive
                 ? "bg-primary-50 text-primary-700 shadow-2xs font-bold"
@@ -111,6 +114,7 @@ export default function AdminDashboardLayout({
 }) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const session = getCookie("admin_session");
@@ -140,34 +144,47 @@ export default function AdminDashboardLayout({
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white text-secondary-900 border-r border-secondary-200 flex flex-col shadow-xs z-10 md:min-h-screen md:max-h-screen sticky top-0">
-        <div className="h-16 flex items-center px-5 border-b border-secondary-200 justify-between">
+      <aside className="w-full md:w-64 bg-white text-secondary-900 border-b md:border-b-0 md:border-r border-secondary-200 flex flex-col shadow-xs z-30 md:min-h-screen md:max-h-screen sticky top-0">
+        <div className="h-14 sm:h-16 flex items-center px-4 sm:px-5 border-b border-secondary-200 justify-between">
           <Link href="/admin/dashboard" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Promoh Logo" width={28} height={28} className="object-contain" />
-            <span className="text-lg font-bold tracking-tight text-primary-600">Promoh Admin</span>
+            <span className="text-base sm:text-lg font-bold tracking-tight text-primary-600">Promoh Admin</span>
           </Link>
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
-        <Suspense fallback={<div className="p-4 text-xs text-secondary-400">Loading navigation...</div>}>
-          <AdminNav />
-        </Suspense>
+        {/* Collapsible content on mobile, permanent on desktop */}
+        <div className={`${mobileMenuOpen ? "flex" : "hidden md:flex"} flex-col flex-1 max-h-[calc(100vh-4rem)] md:max-h-none overflow-y-auto`}>
+          <Suspense fallback={<div className="p-4 text-xs text-secondary-400">Loading navigation...</div>}>
+            <AdminNav onNavigate={() => setMobileMenuOpen(false)} />
+          </Suspense>
 
-        <div className="p-3 border-t border-secondary-200 bg-secondary-50/50">
-          <div className="px-3 py-1 mb-1">
-            <p className="text-[10px] text-primary-600 font-bold uppercase tracking-wider">Super Administrator</p>
+          <div className="p-3 border-t border-secondary-200 bg-secondary-50/50 mt-auto">
+            <div className="px-3 py-1 mb-1">
+              <p className="text-[10px] text-primary-600 font-bold uppercase tracking-wider">Super Administrator</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2.5 px-3 py-2 w-full rounded-xl hover:bg-rose-50 text-secondary-600 hover:text-rose-600 transition-colors text-left text-xs font-semibold"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2.5 px-3 py-2 w-full rounded-xl hover:bg-rose-50 text-secondary-600 hover:text-rose-600 transition-colors text-left text-xs font-semibold"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-slate-50/30">
+      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/30">
         {children}
       </main>
     </div>

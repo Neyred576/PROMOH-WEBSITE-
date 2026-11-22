@@ -439,29 +439,29 @@ export default function ProviderProfilePage() {
                   </div>
                 </div>
 
-                <CardContent className="p-6 relative">
+                <CardContent className="p-4 sm:p-6 relative">
                   {/* Avatar */}
-                  <div className="absolute -top-14 left-6 w-28 h-28 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-white">
+                  <div className="relative -mt-16 mb-3 sm:mb-0 sm:mt-0 sm:absolute sm:-top-14 sm:left-6 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-white mx-auto sm:mx-0 shrink-0">
                     {provider.photoURL ? (
                       <Image src={provider.photoURL} alt={displayName} fill className="object-cover" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-primary-400 to-indigo-500 flex items-center justify-center">
-                        <span className="text-4xl font-bold text-white">{displayName[0]?.toUpperCase()}</span>
+                        <span className="text-3xl sm:text-4xl font-bold text-white">{displayName[0]?.toUpperCase()}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="ml-36">
-                    <div className="flex items-start gap-3 flex-wrap">
-                      <h1 className="text-2xl font-bold text-secondary-900">{displayName}</h1>
+                  <div className="sm:ml-36 text-center sm:text-left">
+                    <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-3 flex-wrap">
+                      <h1 className="text-xl sm:text-2xl font-bold text-secondary-900">{displayName}</h1>
                       {provider.isVerified && (
-                        <span className="flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm font-semibold border border-primary-200">
-                          <ShieldCheck className="w-4 h-4" /> Verified
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 bg-primary-50 text-primary-700 rounded-full text-xs sm:text-sm font-semibold border border-primary-200">
+                          <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Verified
                         </span>
                       )}
                     </div>
-                    <p className="text-secondary-600 mt-1">{services[0] || "Professional Services"}</p>
-                    <div className="flex items-center gap-4 mt-3 flex-wrap">
+                    <p className="text-secondary-600 mt-1 text-sm sm:text-base">{services[0] || "Professional Services"}</p>
+                    <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-3 flex-wrap text-xs sm:text-sm">
                       {provider.location && (
                         <span className="flex items-center gap-1 text-sm text-secondary-500">
                           <MapPin className="w-4 h-4" /> {provider.location}

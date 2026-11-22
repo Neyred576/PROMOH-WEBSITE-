@@ -1416,13 +1416,13 @@ function AdminDashboardContent() {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-secondary-900">Admin Control Center</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-secondary-900">Admin Control Center</h1>
           <p className="text-secondary-500 text-xs sm:text-sm mt-1">
             Real-time platform monitoring, customer records, verification, and live CMS controls.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Button
             size="sm"
             variant="outline"
@@ -1485,12 +1485,13 @@ function AdminDashboardContent() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
                 <Wifi className="w-3.5 h-3.5 text-green-600" />
-                Real-Time Feed Live
+                <span className="hidden sm:inline">Real-Time Feed Live</span>
+                <span className="sm:hidden">Live</span>
               </>
             ) : (
               <>
                 <WifiOff className="w-3.5 h-3.5 text-red-600" />
-                Connection Paused (Click to retry)
+                <span>Paused (Retry)</span>
               </>
             )}
           </div>
@@ -1587,14 +1588,14 @@ function AdminDashboardContent() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-secondary-200 overflow-x-auto hide-scrollbar gap-1">
+      <div className="flex border-b border-secondary-200 overflow-x-auto hide-scrollbar gap-1 -mx-4 px-4 sm:mx-0 sm:px-0">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 sm:px-5 py-3 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${
+            className={`px-3.5 sm:px-5 py-2.5 sm:py-3 font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors border-b-2 flex items-center gap-1.5 sm:gap-2 shrink-0 ${
               activeTab === tab.key
-                ? "border-primary-600 text-primary-700"
+                ? "border-primary-600 text-primary-700 font-bold"
                 : "border-transparent text-secondary-500 hover:text-secondary-900"
             }`}
           >
@@ -1610,14 +1611,14 @@ function AdminDashboardContent() {
 
       {/* 1. OVERVIEW TAB */}
       {activeTab === "overview" && (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {/* Real-Time Live Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Customers */}
             <Card className="border border-blue-200 bg-blue-50/40 relative overflow-hidden">
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-blue-600">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-blue-600 shrink-0">
                     <Users className="w-5 h-5" />
                   </div>
                   <span
@@ -1629,16 +1630,16 @@ function AdminDashboardContent() {
                   </span>
                 </div>
                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Total Customers</p>
-                <h3 className="text-3xl font-extrabold mt-1 text-secondary-900">{allCustomers.length}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold mt-1 text-secondary-900">{allCustomers.length}</h3>
                 <p className="text-[11px] text-blue-700 font-medium mt-1">+{todayCustomersCount} joined today</p>
               </CardContent>
             </Card>
 
             {/* Providers */}
             <Card className="border border-indigo-200 bg-indigo-50/40 relative overflow-hidden">
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-indigo-600">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-indigo-600 shrink-0">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <span
@@ -1650,7 +1651,7 @@ function AdminDashboardContent() {
                   </span>
                 </div>
                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Total Providers</p>
-                <h3 className="text-3xl font-extrabold mt-1 text-secondary-900">{allProviders.length}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold mt-1 text-secondary-900">{allProviders.length}</h3>
                 <p className="text-[11px] text-indigo-700 font-medium mt-1">{approvedProvidersCount} approved & active</p>
               </CardContent>
             </Card>
@@ -1663,9 +1664,9 @@ function AdminDashboardContent() {
                 setProviderFilter("pending");
               }}
             >
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-amber-600">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-sm text-amber-600 shrink-0">
                     <Clock className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-100 text-amber-800">
@@ -1673,16 +1674,16 @@ function AdminDashboardContent() {
                   </span>
                 </div>
                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Pending Review</p>
-                <h3 className="text-3xl font-extrabold mt-1 text-secondary-900">{pendingProviders.length}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold mt-1 text-secondary-900">{pendingProviders.length}</h3>
                 <p className="text-[11px] text-amber-700 font-medium mt-1">Click to review now &rarr;</p>
               </CardContent>
             </Card>
 
             {/* Today's Platform Revenue */}
             <Card className="border border-green-200 bg-green-50/40 relative overflow-hidden">
-              <CardContent className="p-5">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-xs text-green-600">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white shadow-xs text-green-600 shrink-0">
                     <DollarSign className="w-5 h-5" />
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -1691,7 +1692,7 @@ function AdminDashboardContent() {
                         type="button"
                         onClick={handleUndoResetRevenue}
                         disabled={resettingRevenue}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
                         title="Restore full-day revenue calculation"
                       >
                         <RotateCcw className="w-3 h-3" />
@@ -1701,7 +1702,7 @@ function AdminDashboardContent() {
                       <button
                         type="button"
                         onClick={() => setShowResetConfirmModal(true)}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-secondary-600 hover:text-red-600 bg-white hover:bg-red-50 border border-secondary-200 hover:border-red-200 px-2.5 py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-secondary-600 hover:text-red-600 bg-white hover:bg-red-50 border border-secondary-200 hover:border-red-200 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all shadow-2xs cursor-pointer"
                         title="Reset Today's Revenue to $0.00"
                       >
                         <RotateCcw className="w-3 h-3" />
@@ -1714,7 +1715,7 @@ function AdminDashboardContent() {
                   </div>
                 </div>
                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Today's Revenue</p>
-                <h3 className="text-3xl font-extrabold mt-1 text-secondary-900">{formatCurrency(todayRevenue, "USD")}</h3>
+                <h3 className="text-2xl sm:text-3xl font-extrabold mt-1 text-secondary-900">{formatCurrency(todayRevenue, "USD")}</h3>
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-[11px] text-green-700 font-medium">{todayBookingsCount} bookings included</p>
                   {revenueResetAt >= todayMs && (
@@ -2302,7 +2303,7 @@ function AdminDashboardContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 justify-start sm:justify-end">
                       <span
                         className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                           p.status === "Approved"
@@ -2527,7 +2528,7 @@ function AdminDashboardContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 justify-start sm:justify-end">
                       <span className="text-[11px] text-secondary-400 hidden sm:block">
                         {c.createdAt ? fmtDate(c.createdAt) : "—"}
                       </span>
@@ -3244,9 +3245,9 @@ function AdminDashboardContent() {
 
       {/* Booking Details Modal */}
       {selectedBookingDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200">
-            <div className="bg-secondary-50 p-4 border-b border-secondary-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200 max-h-[90vh] flex flex-col">
+            <div className="bg-secondary-50 p-4 border-b border-secondary-200 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-sm text-secondary-900">Booking Record Details</h3>
                 <p className="text-[11px] text-secondary-500 font-mono">ID: {selectedBookingDetails.id}</p>
@@ -3255,7 +3256,7 @@ function AdminDashboardContent() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 space-y-3.5 text-xs text-secondary-700">
+            <div className="p-4 sm:p-6 space-y-3.5 text-xs text-secondary-700 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3 p-3 bg-secondary-50/70 rounded-xl">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block">Customer</span>
@@ -3323,9 +3324,9 @@ function AdminDashboardContent() {
 
       {/* Customer Inspector Modal */}
       {inspectingCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200">
-            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-5 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200 max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-4 sm:p-5 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-white text-base">
                   {inspectingCustomer.firstName} {inspectingCustomer.lastName}
@@ -3336,7 +3337,7 @@ function AdminDashboardContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-xs text-secondary-700">
+            <div className="p-4 sm:p-6 space-y-4 text-xs text-secondary-700 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Phone</span>
@@ -3412,9 +3413,9 @@ function AdminDashboardContent() {
 
       {/* Provider Inspector Modal */}
       {inspectingProvider && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200">
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-secondary-200 max-h-[90vh] flex flex-col">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 sm:p-5 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-white text-base">
                   {inspectingProvider.businessName || `${inspectingProvider.firstName} ${inspectingProvider.lastName}`}
@@ -3425,7 +3426,7 @@ function AdminDashboardContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4 text-xs text-secondary-700">
+            <div className="p-4 sm:p-6 space-y-4 text-xs text-secondary-700 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Status</span>

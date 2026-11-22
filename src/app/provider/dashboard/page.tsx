@@ -336,11 +336,11 @@ export default function ProviderDashboardPage() {
   }, [recentRequests, selectedTab, searchQuery]);
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Header Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-secondary-900">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-secondary-900">
             Welcome back,{" "}
             {providerData?.businessName ||
               providerData?.firstName ||
@@ -533,11 +533,11 @@ export default function ProviderDashboardPage() {
       )}
 
       {/* Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-secondary-200 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-secondary-200 pb-2 overflow-x-auto -mx-3 sm:-mx-4 md:mx-0 px-3 sm:px-4 md:px-0">
         <button
           type="button"
           onClick={() => setActiveSection("overview")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
             activeSection === "overview"
               ? "bg-primary-600 text-white shadow-sm"
               : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"
@@ -550,7 +550,7 @@ export default function ProviderDashboardPage() {
         <button
           type="button"
           onClick={() => setActiveSection("calendar")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
             activeSection === "calendar"
               ? "bg-primary-600 text-white shadow-sm"
               : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"
@@ -563,7 +563,7 @@ export default function ProviderDashboardPage() {
         <button
           type="button"
           onClick={() => setActiveSection("availability")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
             activeSection === "availability"
               ? "bg-primary-600 text-white shadow-sm"
               : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"
@@ -576,7 +576,7 @@ export default function ProviderDashboardPage() {
         <button
           type="button"
           onClick={() => setActiveSection("payouts")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
             activeSection === "payouts"
               ? "bg-primary-600 text-white shadow-sm"
               : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"
@@ -589,7 +589,7 @@ export default function ProviderDashboardPage() {
         <button
           type="button"
           onClick={() => setActiveSection("reviews")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
             activeSection === "reviews"
               ? "bg-primary-600 text-white shadow-sm"
               : "text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100"

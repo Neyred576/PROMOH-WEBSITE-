@@ -50,8 +50,8 @@ export default function MobileBottomNav() {
     return () => unsub();
   }, [user?.uid]);
 
-  // Don't display in full-screen chat on mobile to avoid overlapping chat input
-  if (pathname === "/chat") return null;
+  // Don't display in full-screen chat or inside admin portal on mobile to avoid overlapping controls
+  if (pathname === "/chat" || pathname?.startsWith("/admin")) return null;
 
   const navItems = [
     { label: "Home", href: "/", icon: Home, active: pathname === "/" },

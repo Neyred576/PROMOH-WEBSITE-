@@ -182,15 +182,14 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen bg-secondary-50 pb-20">
-      {/* Customer Nav */}
       <nav className="bg-white border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Promoh" width={32} height={32} className="w-auto h-8 object-contain" />
-            <span className="text-xl font-bold text-primary-600 hidden sm:block">Promoh</span>
+            <Image src="/logo.png" alt="Promoh" width={32} height={32} className="w-auto h-7 sm:h-8 object-contain" />
+            <span className="text-lg sm:text-xl font-bold text-primary-600 hidden sm:block">Promoh</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/search"><Button variant="ghost" size="sm"><Search className="w-4 h-4 mr-1" /> Find Pros</Button></Link>
+          <div className="flex items-center gap-1 sm:gap-3">
+            <Link href="/search"><Button variant="ghost" size="sm"><Search className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Find Pros</span></Button></Link>
             
             {/* Live Notification Bell */}
             <Link
@@ -206,18 +205,18 @@ export default function CustomerDashboard() {
               )}
             </Link>
 
-            <Link href="/profile"><Button variant="ghost" size="sm"><User className="w-4 h-4 mr-1" /> Profile</Button></Link>
-            <button onClick={handleSignOut} className="flex items-center gap-2 text-secondary-500 hover:text-secondary-900 text-sm font-medium transition-colors">
-              <LogOut className="w-4 h-4" /> Log Out
+            <Link href="/profile"><Button variant="ghost" size="sm"><User className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Profile</span></Button></Link>
+            <button onClick={handleSignOut} className="flex items-center gap-1 sm:gap-2 text-secondary-500 hover:text-secondary-900 text-sm font-medium transition-colors">
+              <LogOut className="w-4 h-4" /><span className="hidden sm:inline">Log Out</span>
             </button>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
         {/* Welcome */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-secondary-900">
+          <h1 className="text-2xl sm:text-3xl font-bold text-secondary-900">
             Welcome back, {user.displayName?.split(" ")[0] || "there"} 👋
           </h1>
           <p className="text-secondary-500 mt-1">Manage your bookings and saved professionals from your dashboard.</p>
@@ -398,7 +397,7 @@ export default function CustomerDashboard() {
                             </div>
                             <p className="text-sm text-secondary-600 font-medium">{booking.service}</p>
                             
-                            <div className="flex items-center gap-4 mt-3 text-xs text-secondary-500">
+                            <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-secondary-500">
                               <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{new Date(booking.date + "T12:00:00").toLocaleDateString()} at {booking.time}</span>
                               <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{booking.address || "No address provided"}</span>
                             </div>

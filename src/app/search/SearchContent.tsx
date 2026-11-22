@@ -263,7 +263,7 @@ export default function SearchContent() {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mt-4 pt-4 border-t border-secondary-200 flex flex-wrap gap-6 items-end">
+                <div className="mt-4 pt-4 border-t border-secondary-200 flex flex-wrap gap-3 sm:gap-6 items-end">
                   <div>
                     <label className="text-xs font-semibold text-secondary-500 uppercase tracking-wider block mb-2">Sort By</label>
                     <select
@@ -327,8 +327,19 @@ export default function SearchContent() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+        {/* Mobile category horizontal scroll — hidden on lg where sidebar is visible */}
+        <div className="lg:hidden mb-4 -mx-4 px-4 overflow-x-auto">
+          <div className="flex gap-2 pb-2 whitespace-nowrap">
+            {dynamicCategories.map(cat => (
+              <button key={cat.slug} onClick={() => handleCategoryClick(cat.slug)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectedCategory === cat.slug ? "bg-primary-600 text-white border-primary-600" : "bg-white border-secondary-200 text-secondary-700 hover:border-primary-400"}`}>
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-6 sm:gap-8">
           {/* Sidebar */}
           <aside className="hidden lg:block w-56 shrink-0">
             <div className="bg-white rounded-2xl border border-secondary-200 p-4 sticky top-48 shadow-sm">
@@ -372,7 +383,7 @@ export default function SearchContent() {
             </div>
 
             {loading ? (
-              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {[1,2,3,4,5,6].map(i => <div key={i} className="rounded-2xl bg-secondary-100 animate-pulse h-72" />)}
               </div>
             ) : providers.length === 0 ? (
@@ -395,7 +406,7 @@ export default function SearchContent() {
                 <ProviderMap providers={providers} />
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {providers.map((provider, i) => {
                   const isSaved = savedProviders.includes(provider.id);
                   const trustScore = provider.trustScore || Math.min(95, 60 + (provider.reviewCount || 0) * 2 + (provider.isVerified ? 15 : 0));

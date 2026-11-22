@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import GlobalAnnouncementWrapper from "@/components/layout/GlobalAnnouncementWrapper";
@@ -11,6 +11,13 @@ const outfit = Outfit({
   variable: "--font-sans",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#2563eb",
+};
 
 export const metadata: Metadata = {
   title: "Promoh | Find Trusted Professionals Anywhere",

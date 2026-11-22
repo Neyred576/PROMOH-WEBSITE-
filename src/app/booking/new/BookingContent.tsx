@@ -407,24 +407,24 @@ export default function NewBookingContent() {
                     )}
                   </div>
 
-                  {/* Time Slots */}
-                  <div>
-                    <label className="text-sm font-semibold block mb-2 text-secondary-700">
-                      <Clock className="w-4 h-4 inline mr-1.5 text-primary-500" />Preferred Time
-                    </label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {TIME_SLOTS.map(slot => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setTime(slot)}
-                          className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${time === slot ? "bg-primary-600 border-primary-600 text-white" : "border-secondary-200 hover:border-primary-400 text-secondary-700 bg-white"}`}
-                        >
-                          {slot}
-                        </button>
-                      ))}
+                    {/* Time Slots */}
+                    <div>
+                      <label className="text-sm font-semibold block mb-2 text-secondary-700">
+                        <Clock className="w-4 h-4 inline mr-1.5 text-primary-500" />Preferred Time
+                      </label>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2">
+                        {TIME_SLOTS.map(slot => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setTime(slot)}
+                            className={`py-2 px-1.5 sm:px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-all ${time === slot ? "bg-primary-600 border-primary-600 text-white shadow-xs" : "border-secondary-200 hover:border-primary-400 text-secondary-700 bg-white"}`}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
                   {/* Address */}
                   <div>

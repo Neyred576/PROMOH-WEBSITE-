@@ -127,7 +127,7 @@ export default function AdminBookingKanban({ allBookings }: BookingKanbanProps) 
       </div>
 
       {/* Kanban Board Container */}
-      <div className="flex gap-4 overflow-x-auto pb-6 pt-1">
+      <div className="flex gap-4 overflow-x-auto pb-6 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0 hide-scrollbar">
         {COLUMNS.map((col) => {
           const items = allBookings.filter((b) => {
             if (col.key === "cancelled") {

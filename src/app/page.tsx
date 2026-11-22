@@ -24,7 +24,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="relative pt-24 pb-32 overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      <section className="relative pt-20 pb-24 sm:pt-24 sm:pb-32 overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary-200/30 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-indigo-200/30 blur-3xl" />
@@ -36,12 +36,12 @@ export default function Home() {
             <span>100% Verified Professionals Worldwide</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-secondary-900 max-w-4xl leading-tight animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tight text-secondary-900 max-w-4xl leading-tight animate-fade-in-up" style={{ animationDelay: '100ms' }}>
             Find Trusted Professionals{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-indigo-600">Anywhere.</span>
           </h1>
 
-          <p className="mt-6 text-xl text-secondary-600 max-w-2xl animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+          <p className="mt-4 sm:mt-6 text-base sm:text-xl text-secondary-600 max-w-2xl animate-fade-in-up px-2 sm:px-0" style={{ animationDelay: '200ms' }}>
             Find. Compare. Chat. Book. Done. The world's most trusted marketplace for hiring local service experts.
           </p>
 
@@ -55,13 +55,13 @@ export default function Home() {
       <section className="py-12 bg-white relative border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 relative z-10">
           <div className="bg-gradient-to-r from-primary-900 to-indigo-900 rounded-3xl overflow-hidden shadow-xl">
-            <div className="px-6 py-10 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="px-4 py-8 sm:px-6 sm:py-10 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
               <div className="flex-1 text-center md:text-left">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold mb-4 border border-white/20">
                   <span className="flex h-2 w-2 rounded-full bg-green-400"></span>
                   New Public Job Board
                 </div>
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4">
                   Need Online Work Done?
                 </h2>
                 <p className="text-primary-100 text-lg max-w-xl">
@@ -143,8 +143,8 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-secondary-200 text-secondary-600 py-16 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-12 relative z-10">
-          <div className="col-span-1">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 md:gap-12 relative z-10">
+          <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <Image src="/logo.png" alt="Promoh Logo" width={40} height={40} className="w-auto h-8 object-contain" />
               <span className="text-2xl font-bold text-secondary-900 tracking-tight">Promoh</span>
