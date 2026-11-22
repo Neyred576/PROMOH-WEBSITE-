@@ -20,17 +20,29 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://promohbusiness.netlify.app"),
   title: "Promoh | Find Trusted Professionals Anywhere",
   description: "The most trusted global marketplace for finding and booking verified service professionals.",
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "Promoh | Trusted Professionals",
     description: "Book verified service professionals instantly.",
     type: "website",
+    images: [{ url: "/logo.png" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Promoh",
     description: "Book verified service professionals instantly.",
+    images: ["/logo.png"],
   }
 };
 
