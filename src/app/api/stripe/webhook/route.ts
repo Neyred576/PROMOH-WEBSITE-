@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
 
 export async function POST(req: NextRequest) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -19,80 +20,109 @@ export async function POST(req: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret || "");
     } catch (err: any) {
-      return NextResponse.json({ error: `Webhook error: ${err.message}` }, { status: 400 });
+      console.error("Stripe webhook signature error:", err.message);
+      return NextResponse.json({ error: `Webhook signature error: ${err.message}` }, { status: 400 });
     }
 
-    // Import Firebase Admin
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-
-    if (!getApps().length) {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-        }),
-      });
+    if (!adminDb) {
+      console.warn("Webhook received but Firebase Admin DB is not initialized.");
+      return NextResponse.json({ received: true, warning: "Admin DB offline" });
     }
 
-    const adminDb = getFirestore();
-
+    // 1. Successful payment processing
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object;
-      const { bookingId, providerId } = pi.metadata;
+      const { bookingId, providerId, customerId } = pi.metadata || {};
 
-      // Update booking status
       if (bookingId) {
-        await adminDb.collection("bookings").doc(bookingId).update({
-          paymentStatus: "paid",
-          paymentIntentId: pi.id,
-          paidAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        const bookingRef = adminDb.collection("bookings").doc(bookingId);
+        const bookingSnap = await bookingRef.get();
 
-        // Notify provider about payment
+        // Idempotency check: don't double-process already finalized payments
+        if (bookingSnap.exists) {
+          const currentData = bookingSnap.data();
+          if (currentData?.paymentStatus === "paid" && currentData?.paymentIntentId === pi.id) {
+            return NextResponse.json({ received: true, idempotent: true });
+          }
+        }
+
+        const nowIso = new Date().toISOString();
+        const formattedAmount = (pi.amount / 100).toFixed(2);
+
+        // Update booking state atomically
+        await bookingRef.set(
+          {
+            paymentStatus: "paid",
+            status: "confirmed",
+            amount: pi.amount / 100,
+            currency: pi.currency?.toUpperCase() || "USD",
+            paymentIntentId: pi.id,
+            paidAt: nowIso,
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        );
+
+        // Notify Provider
         if (providerId) {
           await adminDb.collection("notifications").add({
             userId: providerId,
             title: "💰 Payment Received",
-            message: `Payment of $${(pi.amount / 100).toFixed(2)} received for booking.`,
+            message: `Payment of $${formattedAmount} received for booking #${bookingId.slice(0, 7)}. Booking is now confirmed!`,
             link: "/provider/dashboard",
             type: "booking_completed",
             read: false,
-            createdAt: new Date().toISOString(),
-          });
+            createdAt: nowIso,
+          }).catch(console.error);
+        }
+
+        // Notify Customer
+        if (customerId) {
+          await adminDb.collection("notifications").add({
+            userId: customerId,
+            title: "✅ Payment Confirmed",
+            message: `Your payment of $${formattedAmount} was successful. Your service is scheduled!`,
+            link: `/dashboard`,
+            type: "booking_update",
+            read: false,
+            createdAt: nowIso,
+          }).catch(console.error);
         }
       }
     }
 
+    // 2. Failed payment processing
     if (event.type === "payment_intent.payment_failed") {
       const pi = event.data.object;
-      const { bookingId, customerId } = pi.metadata;
+      const { bookingId, customerId } = pi.metadata || {};
 
       if (bookingId) {
-        await adminDb.collection("bookings").doc(bookingId).update({
-          paymentStatus: "failed",
-          updatedAt: new Date().toISOString(),
-        });
+        const nowIso = new Date().toISOString();
+        await adminDb.collection("bookings").doc(bookingId).set(
+          {
+            paymentStatus: "failed",
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        );
 
         if (customerId) {
           await adminDb.collection("notifications").add({
             userId: customerId,
             title: "❌ Payment Failed",
-            message: "Your payment could not be processed. Please try again.",
+            message: "Your payment attempt was declined. Please verify your card or try another payment method.",
             link: `/payment/${bookingId}`,
             type: "booking_update",
             read: false,
-            createdAt: new Date().toISOString(),
-          });
+            createdAt: nowIso,
+          }).catch(console.error);
         }
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error("Webhook error:", error);
+    console.error("Webhook processing error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

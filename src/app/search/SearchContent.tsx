@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import {
   Search, MapPin, Star, ShieldCheck, SlidersHorizontal, X, Heart,
   Zap, Wrench, SprayCan, GraduationCap, Camera, Car, Hammer,
-  Paintbrush, Package, Scissors, Monitor, Home as HomeIcon, Award
+  Paintbrush, Package, Scissors, Monitor, Home as HomeIcon, Award, Briefcase
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -22,6 +22,8 @@ import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import dynamic from "next/dynamic";
 import { onSnapshot } from "firebase/firestore";
+import { ProviderGridSkeleton } from "@/components/ui/ProviderCardSkeleton";
+import { ProviderPresenceBadge } from "@/components/provider/ProviderPresenceBadge";
 
 const ProviderMap = dynamic(() => import("@/components/search/ProviderMap"), {
   ssr: false,
@@ -44,6 +46,19 @@ interface Provider {
   description?: string;
   trustScore?: number;
   isOnline?: boolean;
+  lastSeen?: any;
+  availability?: any;
+}
+
+const TODAY_KEY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
+
+function isProviderAvailableToday(provider: Provider): boolean {
+  if (provider.availability?.isAcceptingBookings === false) return false;
+  const workingDays = provider.availability?.workingDays;
+  if (Array.isArray(workingDays) && workingDays.length > 0) {
+    return workingDays.includes(TODAY_KEY);
+  }
+  return ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(TODAY_KEY);
 }
 
 const CATEGORIES = [
@@ -72,6 +87,7 @@ export default function SearchContent() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("q") || "");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [onlineOnly, setOnlineOnly] = useState(false);
+  const [availableTodayOnly, setAvailableTodayOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"rating" | "price_asc" | "price_desc" | "reviews" | "name">("rating");
   const [minRating, setMinRating] = useState(0);
   const [minPrice, setMinPrice] = useState("");
@@ -133,6 +149,7 @@ export default function SearchContent() {
         results = results.filter(p => p.location?.toLowerCase().includes(location));
       }
       if (onlineOnly) results = results.filter(p => p.isOnline);
+      if (availableTodayOnly) results = results.filter(p => isProviderAvailableToday(p));
       if (verifiedOnly) results = results.filter(p => p.isVerified);
       if (minRating > 0) results = results.filter(p => (p.rating || 0) >= minRating);
       if (maxPrice) results = results.filter(p => Number(p.hourlyRate) <= Number(maxPrice));
@@ -158,7 +175,7 @@ export default function SearchContent() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, locationQuery, verifiedOnly, onlineOnly, minRating, maxPrice, minPrice, sortBy]);
+  }, [searchQuery, locationQuery, verifiedOnly, onlineOnly, availableTodayOnly, minRating, maxPrice, minPrice, sortBy]);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
 
@@ -200,6 +217,7 @@ export default function SearchContent() {
   const resetAllFilters = () => {
     setVerifiedOnly(false);
     setOnlineOnly(false);
+    setAvailableTodayOnly(false);
     setMinRating(0);
     setMaxPrice("");
     setMinPrice("");
@@ -317,6 +335,15 @@ export default function SearchContent() {
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Online Now Only
                     </label>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <button id="today-toggle" onClick={() => setAvailableTodayOnly(!availableTodayOnly)}
+                      className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${availableTodayOnly ? "bg-teal-600" : "bg-secondary-300"}`}>
+                      <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${availableTodayOnly ? "translate-x-5" : "translate-x-0.5"}`} />
+                    </button>
+                    <label className="text-sm font-medium flex items-center gap-1 cursor-pointer" onClick={() => setAvailableTodayOnly(!availableTodayOnly)}>
+                      <span className="w-2 h-2 rounded-full bg-teal-500" /> Available Today
+                    </label>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={resetAllFilters}>
                     <X className="w-4 h-4 mr-1" /> Clear All
                   </Button>
@@ -383,9 +410,7 @@ export default function SearchContent() {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {[1,2,3,4,5,6].map(i => <div key={i} className="rounded-2xl bg-secondary-100 animate-pulse h-72" />)}
-              </div>
+              <ProviderGridSkeleton count={6} />
             ) : providers.length === 0 ? (
               <div className="text-center py-20 border-2 border-dashed border-secondary-200 rounded-3xl bg-white p-8">
                 <div className="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4 text-secondary-400">
@@ -393,12 +418,17 @@ export default function SearchContent() {
                 </div>
                 <h3 className="text-xl font-bold text-secondary-800">No professionals found</h3>
                 <p className="text-secondary-500 text-sm mt-1 max-w-md mx-auto">
-                  We couldn't find any verified service providers matching your exact search criteria or filters.
+                  We couldn&apos;t find any verified service providers matching your exact search criteria or filters.
                 </p>
-                <div className="flex justify-center gap-3 mt-6">
+                <div className="flex flex-wrap justify-center gap-3 mt-6">
                   <Button onClick={resetAllFilters} className="gap-2">
                     <X className="w-4 h-4" /> Reset All Filters
                   </Button>
+                  <Link href="/online-jobs">
+                    <Button variant="outline" className="gap-2">
+                      <Briefcase className="w-4 h-4" /> Post a Job Request
+                    </Button>
+                  </Link>
                 </div>
               </div>
             ) : showMap ? (
@@ -437,13 +467,15 @@ export default function SearchContent() {
                                 {provider.rating.toFixed(1)}
                               </div>
                             )}
-                            {/* Online Now Indicator */}
-                            {provider.isOnline && (
-                              <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-emerald-700 text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm border border-emerald-200">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                Online Now
-                              </div>
-                            )}
+                            {/* Online Now / Active Presence Indicator & Available Today */}
+                            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 flex-wrap">
+                              <ProviderPresenceBadge isOnline={provider.isOnline} lastSeen={provider.lastSeen} />
+                              {isProviderAvailableToday(provider) && (
+                                <span className="bg-white/95 backdrop-blur-xs text-teal-800 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-teal-200 flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Today
+                                </span>
+                              )}
+                            </div>
                             {/* Favorite button */}
                             <button
                               id={`save-${provider.id}`}

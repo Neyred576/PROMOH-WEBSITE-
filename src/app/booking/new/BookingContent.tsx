@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { db } from "@/lib/firebase/client";
-import { collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc, increment } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, query, where, getDocs, updateDoc, increment, serverTimestamp } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -216,6 +216,15 @@ export default function NewBookingContent() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      // Record real public activity event for live social proof ticker
+      addDoc(collection(db, "public_activities"), {
+        type: "booking",
+        name: user.displayName ? `${user.displayName.split(" ")[0]} ${user.displayName.split(" ")[1]?.[0] || ""}.`.trim() : "A customer",
+        city: address ? address.split(",")[0].trim() : (provider?.location?.split(",")[0] || ""),
+        service: selectedService || provider?.servicesOffered?.split(",")[0] || "Professional Service",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
 
       // Increment promo usage counter if applied
       if (appliedPromo?.id) {

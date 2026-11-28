@@ -181,19 +181,42 @@ export default function PaymentPage() {
             </Card>
           )}
 
-          {/* Payment Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CreditCard className="w-5 h-5 text-primary-600" /> Payment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {error && (
-                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-200 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />{error}
+          {/* Payment Form or Already Paid State */}
+          {booking?.paymentStatus === "paid" ? (
+            <Card className="border-green-200 bg-white">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600">
+                  <CheckCircle className="w-8 h-8" />
                 </div>
-              )}
+                <h2 className="text-xl font-bold text-secondary-900">Payment Already Completed</h2>
+                <p className="text-sm text-secondary-600 max-w-md mx-auto">
+                  This booking was successfully paid for
+                  {booking.paidAt ? ` on ${new Date(booking.paidAt).toLocaleDateString()}` : ""}.
+                  Your service provider has been notified.
+                </p>
+                <div className="pt-2 flex flex-wrap justify-center gap-3">
+                  <Link href="/dashboard">
+                    <Button>Return to Dashboard</Button>
+                  </Link>
+                  <Link href={`/chat?provider=${booking.providerId}`}>
+                    <Button variant="outline">Message Provider</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CreditCard className="w-5 h-5 text-primary-600" /> Payment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {error && (
+                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-200 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />{error}
+                  </div>
+                )}
 
               {/* Currency */}
               <div>
@@ -279,6 +302,7 @@ export default function PaymentPage() {
               </p>
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
     </div>

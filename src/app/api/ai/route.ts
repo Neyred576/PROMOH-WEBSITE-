@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  // Allow up to 30 AI assistant requests per minute per IP
+  const limit = rateLimit(`ai-assistant-${ip}`, 30, 60 * 1000);
+  if (!limit.success) {
+    return NextResponse.json(
+      { error: "Too many AI requests. Please slow down." },
+      { status: 429 }
+    );
+  }
+
   const aiKey = process.env.AI_API_KEY;
 
   try {

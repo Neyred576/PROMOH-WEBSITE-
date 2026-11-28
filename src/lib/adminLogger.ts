@@ -16,7 +16,8 @@ export type AdminActionType =
   | "PROMO_DELETED"
   | "REVIEW_DELETED"
   | "SETTINGS_UPDATED"
-  | "BOOKING_STATUS_OVERRIDE";
+  | "BOOKING_STATUS_OVERRIDE"
+  | "ALL_USERS_PURGED";
 
 export interface AdminAuditLog {
   id?: string;

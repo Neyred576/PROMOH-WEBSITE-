@@ -1,7 +1,8 @@
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { playNotificationChime } from "@/lib/audio";
 import { db } from "@/lib/firebase/client";
 import {
   collection,
@@ -35,6 +36,7 @@ import {
   Store,
   Copy,
   Check,
+  X,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/currencies";
 import Link from "next/link";
@@ -61,6 +63,13 @@ export default function ProviderDashboardPage() {
   const [activeBookings, setActiveBookings] = useState(0);
   const [recentRequests, setRecentRequests] = useState<any[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const isInitialBookings = useRef(true);
+  const [newBookingAlert, setNewBookingAlert] = useState<{
+    bookingId: string;
+    customerName: string;
+    service: string;
+    amount?: number;
+  } | null>(null);
 
   // Tab & Search filters for Bookings
   const [selectedTab, setSelectedTab] = useState<BookingTab>("all");
@@ -220,6 +229,27 @@ export default function ProviderDashboardPage() {
           new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
 
+      if (!isInitialBookings.current) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const data = change.doc.data();
+            if (data.status === "pending") {
+              playNotificationChime();
+              setNewBookingAlert({
+                bookingId: change.doc.id,
+                customerName: data.customerName || "New Customer",
+                service: data.service || "Service Request",
+                amount: data.amount,
+              });
+              setTimeout(() => {
+                setNewBookingAlert((curr) => (curr?.bookingId === change.doc.id ? null : curr));
+              }, 10000);
+            }
+          }
+        });
+      }
+      isInitialBookings.current = false;
+
       setEarnings(total);
       setActiveBookings(active);
       setRecentRequests(allBookings);
@@ -336,7 +366,50 @@ export default function ProviderDashboardPage() {
   }, [recentRequests, selectedTab, searchQuery]);
 
   return (
-    <div className="p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
+    <div className="p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8 relative">
+      {/* Real-time New Booking Alert Banner */}
+      <AnimatePresence>
+        {newBookingAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: -40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -30, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg bg-gradient-to-r from-emerald-600 via-teal-600 to-primary-600 text-white p-4 rounded-2xl shadow-[0_15px_35px_rgba(5,150,105,0.35)] border border-emerald-300/40 flex items-center justify-between gap-3 backdrop-blur-md"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl animate-bounce">🔔</span>
+              <div className="min-w-0">
+                <p className="font-bold text-sm tracking-tight truncate">
+                  New Booking Request from {newBookingAlert.customerName}!
+                </p>
+                <p className="text-xs text-white/90 truncate">
+                  {newBookingAlert.service} {newBookingAlert.amount ? `• $${newBookingAlert.amount}` : ""}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setSelectedTab("pending");
+                  setNewBookingAlert(null);
+                }}
+                className="px-3 py-1.5 bg-white text-emerald-800 text-xs font-bold rounded-xl shadow-xs hover:bg-emerald-50 transition-colors"
+              >
+                Review
+              </button>
+              <button
+                onClick={() => setNewBookingAlert(null)}
+                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>

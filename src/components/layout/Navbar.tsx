@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { useState, useEffect } from "react";
-import { ShieldCheck, Menu, X, MessageSquare } from "lucide-react";
+import { Menu, X, MessageSquare } from "lucide-react";
 import Notifications from "./Notifications";
 import { db } from "@/lib/firebase/client";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
@@ -41,7 +41,13 @@ export default function Navbar() {
     return () => unsub();
   }, [user?.uid]);
 
-  const handleSignOut = async () => { await signOut(); };
+  const handleSignOut = async () => {
+    document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+    await signOut();
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
 
   return (
     <nav className="border-b border-white/40 bg-white/75 backdrop-blur-2xl sticky top-0 z-50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300">
@@ -55,7 +61,7 @@ export default function Navbar() {
           <Link href="/search" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Find Professionals</Link>
           <Link href="/online-jobs" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Online Jobs</Link>
           <Link href="/register/provider" className="hover:text-primary-600 hover:-translate-y-0.5 transition-all">Become a Provider</Link>
-          {user ? (
+          {user && user.role !== "admin" ? (
             <>
               <Link href="/chat">
                 <Button variant="ghost" size="sm" className="px-2 relative">
@@ -71,7 +77,7 @@ export default function Navbar() {
               <Link href="/payments">
                 <Button variant="ghost" size="sm" title="Payment History">Payments</Button>
               </Link>
-              <Link href={user.role === "admin" ? "/admin/dashboard" : user.role === "provider" ? "/provider/dashboard" : "/dashboard"}>
+              <Link href={user.role === "provider" ? "/provider/dashboard" : "/dashboard"}>
                 <Button variant="ghost">Dashboard</Button>
               </Link>
               <Button variant="outline" onClick={handleSignOut}>Log Out</Button>
@@ -92,7 +98,7 @@ export default function Navbar() {
           <Link href="/search" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Find Professionals</Link>
           <Link href="/online-jobs" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Online Jobs</Link>
           <Link href="/provider/register" className="block py-2 hover:text-primary-600" onClick={() => setMobileOpen(false)}>Become a Provider</Link>
-          {user ? (
+          {user && user.role !== "admin" ? (
             <>
               <Link href="/chat" className="flex items-center justify-between py-2 text-secondary-700 font-semibold" onClick={() => setMobileOpen(false)}>
                 <span className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-primary-600" /> Messages</span>
@@ -105,7 +111,7 @@ export default function Navbar() {
               <Link href="/payments" className="block py-2 text-secondary-700 font-semibold hover:text-primary-600" onClick={() => setMobileOpen(false)}>
                 💳 Payment History & Receipts
               </Link>
-              <Link href={user.role === "admin" ? "/admin/dashboard" : user.role === "provider" ? "/provider/dashboard" : "/dashboard"} className="block py-2 text-secondary-700 font-semibold hover:text-primary-600" onClick={() => setMobileOpen(false)}>
+              <Link href={user.role === "provider" ? "/provider/dashboard" : "/dashboard"} className="block py-2 text-secondary-700 font-semibold hover:text-primary-600" onClick={() => setMobileOpen(false)}>
                 📊 Dashboard
               </Link>
               <Button variant="outline" className="w-full" onClick={handleSignOut}>Log Out</Button>

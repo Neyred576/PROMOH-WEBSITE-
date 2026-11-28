@@ -16,8 +16,6 @@ export default function MobileBottomNav() {
   // Determine dashboard link based on role
   const dashboardLink = user?.role === "provider"
     ? "/provider/dashboard"
-    : user?.role === "admin"
-    ? "/admin/dashboard"
     : "/dashboard";
 
   // Real-time unread messages count

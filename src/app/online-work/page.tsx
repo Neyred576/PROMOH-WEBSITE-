@@ -73,6 +73,14 @@ export default function OnlineWorkPage() {
         updatedAt: serverTimestamp(),
       });
 
+      // Real-time public social proof event
+      addDoc(collection(db, "public_activities"), {
+        type: "job",
+        name: user?.displayName ? `${user.displayName.split(" ")[0]} ${user.displayName.split(" ")[1]?.[0] || ""}.`.trim() : "A client",
+        service: finalServiceType,
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
+
       setIsSuccess(true);
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");

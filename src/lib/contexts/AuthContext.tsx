@@ -44,6 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        // Internal admin account: never treat as a marketplace customer or auto-log-in on the public site
+        if (firebaseUser.email === "admin@promoh.com" || firebaseUser.email === "superadmin@promoh.com") {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         try {
           const db = getDb();
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));

@@ -1,11 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { adminDb } from "@/lib/firebase/admin";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    // Rate limit payment intent creations to prevent card testing attacks (max 15/minute per IP)
+    const limit = rateLimit(`stripe-intent-${ip}`, 15, 60 * 1000);
+    if (!limit.success) {
+      return NextResponse.json(
+        { error: "Too many payment requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { amount, currency, bookingId, customerId, providerId } = await req.json();
 
     if (!amount || !bookingId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Amount validation
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount < 1 || numAmount > 50000) {
+      return NextResponse.json(
+        { error: "Invalid payment amount. Must be between $1 and $50,000." },
+        { status: 400 }
+      );
+    }
+
+    // Booking state guardrails: prevent double charge or paying for cancelled bookings
+    if (adminDb) {
+      try {
+        const bookingDoc = await adminDb.collection("bookings").doc(bookingId).get();
+        if (bookingDoc.exists) {
+          const bookingData = bookingDoc.data();
+          if (bookingData?.paymentStatus === "paid") {
+            return NextResponse.json(
+              { error: "This booking has already been paid for." },
+              { status: 400 }
+            );
+          }
+          if (bookingData?.status === "cancelled") {
+            return NextResponse.json(
+              { error: "Cannot process payment for a cancelled booking." },
+              { status: 400 }
+            );
+          }
+        }
+      } catch (dbErr) {
+        console.warn("Could not pre-verify booking status in adminDb:", dbErr);
+      }
     }
 
     // Check if Stripe key is configured
@@ -22,7 +67,7 @@ export async function POST(req: NextRequest) {
     const stripe = new Stripe(stripeSecretKey, { apiVersion: "2024-06-20" as any });
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Convert to cents
+      amount: Math.round(numAmount * 100), // Convert to cents
       currency: (currency || "usd").toLowerCase(),
       metadata: {
         bookingId,

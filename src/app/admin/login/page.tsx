@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Eye, EyeOff, ShieldAlert, Shield } from "lucide-react";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase/client";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
 function getCookie(name: string): string | null {
@@ -24,11 +24,18 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // If already authenticated, skip login and go straight to dashboard
+  // Only skip login if BOTH session cookie exists AND Firebase Auth is active as admin
   useEffect(() => {
-    if (getCookie("admin_session") === "authenticated") {
-      router.replace("/admin/dashboard");
-    }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const session = getCookie("admin_session");
+      if (session === "authenticated" && user?.email === "admin@promoh.com") {
+        router.replace("/admin/dashboard");
+      } else if (session === "authenticated" && !user) {
+        // Clear stale cookie
+        document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      }
+    });
+    return () => unsub();
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -49,21 +56,11 @@ export default function AdminLoginPage() {
 
         // Ensure Firebase Auth session is active as admin so Firestore real-time snapshots work
         try {
-          const cred = await signInWithEmailAndPassword(auth, "admin@promoh.com", password);
-          await setDoc(doc(db, "users", cred.user.uid), {
-            email: "admin@promoh.com",
-            role: "admin",
-            displayName: "System Administrator",
-          }, { merge: true }).catch(() => {});
+          await signInWithEmailAndPassword(auth, "admin@promoh.com", password);
         } catch (authErr: any) {
           if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
             try {
-              const cred = await createUserWithEmailAndPassword(auth, "admin@promoh.com", password);
-              await setDoc(doc(db, "users", cred.user.uid), {
-                email: "admin@promoh.com",
-                role: "admin",
-                displayName: "System Administrator",
-              }, { merge: true }).catch(() => {});
+              await createUserWithEmailAndPassword(auth, "admin@promoh.com", password);
             } catch {
               // Ignore if already created or fallback
             }

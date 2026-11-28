@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { JobGridSkeleton } from "@/components/ui/JobCardSkeleton";
 import { Laptop, Briefcase, Clock, DollarSign, Lock, Search, Filter, Sparkles, Radio } from "lucide-react";
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
+import { motion, AnimatePresence } from "framer-motion";
+import { playNotificationChime } from "@/lib/audio";
 
 interface Job {
   id: string;
@@ -25,6 +28,8 @@ export default function OnlineJobsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [revealedContacts, setRevealedContacts] = useState<Set<string>>(new Set());
+  const [newJobAlert, setNewJobAlert] = useState<number>(0);
+  const isInitialJobsLoad = useRef(true);
 
   useEffect(() => {
     // Only fetch jobs that are still 'pending'
@@ -39,6 +44,21 @@ export default function OnlineJobsPage() {
         id: doc.id,
         ...doc.data()
       })) as Job[];
+
+      if (!isInitialJobsLoad.current) {
+        let addedCount = 0;
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            addedCount++;
+          }
+        });
+        if (addedCount > 0) {
+          playNotificationChime();
+          setNewJobAlert((prev) => prev + addedCount);
+        }
+      }
+      isInitialJobsLoad.current = false;
+
       setJobs(data);
       setLoading(false);
     });
@@ -113,12 +133,32 @@ export default function OnlineJobsPage() {
           </div>
         </div>
 
+        {/* Real-time New Job Notification Banner */}
+        <AnimatePresence>
+          {newJobAlert > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="mb-6 flex justify-center sticky top-24 z-30"
+            >
+              <button
+                onClick={() => {
+                  window.scrollTo({ top: 250, behavior: "smooth" });
+                  setNewJobAlert(0);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary-600 to-indigo-600 text-white text-xs font-bold shadow-xl hover:shadow-primary-500/25 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                <span>{newJobAlert} new job{newJobAlert !== 1 ? "s" : ""} posted just now — click to view</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Jobs List */}
         {loading ? (
-          <div className="text-center py-20 text-gray-500 flex flex-col items-center">
-            <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4" />
-            Loading available jobs...
-          </div>
+          <JobGridSkeleton count={4} />
         ) : filteredJobs.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 shadow-sm">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

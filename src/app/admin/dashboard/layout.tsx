@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase/client";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 
 function getCookie(name: string): string | null {
@@ -117,12 +117,17 @@ export default function AdminDashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const session = getCookie("admin_session");
-    if (session === "authenticated") {
-      setAuthorized(true);
-    } else {
-      router.replace("/admin/login");
-    }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const session = getCookie("admin_session");
+      if (session === "authenticated" && user?.email === "admin@promoh.com") {
+        setAuthorized(true);
+      } else {
+        document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+        setAuthorized(false);
+        router.replace("/admin/login");
+      }
+    });
+    return () => unsub();
   }, [router]);
 
   const handleLogout = async () => {

@@ -37,6 +37,77 @@ export default function RealtimeNotificationListener() {
   const [activeToasts, setActiveToasts] = useState<ToastNotification[]>([]);
   const initialLoadRef = useRef(true);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const bookingStatusesRef = useRef<Record<string, string>>({});
+  const initialBookingsLoadRef = useRef(true);
+
+  // Real-time listener for Customer Booking Status Updates (Accepted, In Progress, Completed, Rejected)
+  useEffect(() => {
+    if (!user?.uid || user?.role === "provider" || user?.role === "admin") return;
+
+    const bq = query(
+      collection(db, "bookings"),
+      where("customerId", "==", user.uid)
+    );
+
+    const unsubBookings = onSnapshot(bq, (snapshot) => {
+      if (initialBookingsLoadRef.current) {
+        snapshot.docs.forEach((d) => {
+          bookingStatusesRef.current[d.id] = d.data().status;
+        });
+        initialBookingsLoadRef.current = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        const id = change.doc.id;
+        const data = change.doc.data();
+        const prevStatus = bookingStatusesRef.current[id];
+        const newStatus = data.status;
+        bookingStatusesRef.current[id] = newStatus;
+
+        if (prevStatus && prevStatus !== newStatus) {
+          let title = "Booking Status Updated";
+          let message = `Your booking for ${data.service || "service"} has been updated to: ${newStatus.replace("_", " ")}.`;
+          let type = "booking_update";
+          let link = "/dashboard";
+
+          if (newStatus === "accepted") {
+            title = "🎉 Booking Accepted!";
+            message = `${data.providerName || "Your provider"} accepted your booking request for ${data.service || "service"}!`;
+          } else if (newStatus === "in_progress") {
+            title = "🚀 Service Started";
+            message = `${data.providerName || "Your provider"} has started working on your service.`;
+          } else if (newStatus === "completed") {
+            title = "⭐ Service Completed";
+            message = `${data.providerName || "Your provider"} marked ${data.service || "your service"} as completed. Receipt ready!`;
+            link = data.paymentStatus === "paid" ? "/dashboard" : `/payment/${id}`;
+            type = "booking_completed";
+          } else if (newStatus === "rejected") {
+            title = "Booking Declined";
+            message = `${data.providerName || "Your provider"} was unable to accept your booking request.`;
+          }
+
+          playNotificationChime();
+          const toastId = `booking_${id}_${Date.now()}`;
+          const toastItem: ToastNotification = {
+            id: toastId,
+            title,
+            message,
+            link,
+            type,
+            createdAt: new Date().toISOString(),
+          };
+
+          setActiveToasts((prev) => [toastItem, ...prev.slice(0, 2)]);
+          setTimeout(() => {
+            setActiveToasts((curr) => curr.filter((t) => t.id !== toastId));
+          }, 8500);
+        }
+      });
+    });
+
+    return () => unsubBookings();
+  }, [user?.uid, user?.role]);
 
   useEffect(() => {
     if (!user?.uid) return;

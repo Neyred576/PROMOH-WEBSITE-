@@ -10,14 +10,16 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   deleteDoc,
+  writeBatch,
   setDoc,
   addDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { playNotificationChime } from "@/lib/audio";
 import {
   Users,
@@ -109,7 +111,7 @@ function toMs(val: unknown): number {
 /** Formats any Firestore date value to a human-readable string. */
 function fmtDate(val: unknown): string {
   const ms = toMs(val);
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   return new Date(ms).toLocaleString();
 }
 
@@ -122,41 +124,17 @@ function isUserOnline(user: { isOnline?: boolean; lastSeen?: unknown }): boolean
   return Date.now() - ms < 3 * 60 * 1000;
 }
 
-let adminAuthInFlight: Promise<void> | null = null;
-
 /**
- * Ensures the admin Firebase Auth session is active as admin@promoh.com.
- * If another user (customer or provider) logged out or logged in, this helper
- * automatically restores the admin session so Firestore real-time feeds
- * never lose permission.
+ * Verifies that the admin Firebase Auth session is active as admin@promoh.com.
+ * If not authenticated, redirects to the admin login portal.
  */
 async function ensureAdminAuth(): Promise<void> {
-  // If already signed in as the admin, nothing to do
   if (auth.currentUser && auth.currentUser.email === "admin@promoh.com") {
     return;
   }
-
-  // Deduplicate in-flight auth requests
-  if (adminAuthInFlight) return adminAuthInFlight;
-
-  adminAuthInFlight = (async () => {
-    try {
-      // If a non-admin user is signed in on this client, sign them out first
-      if (auth.currentUser && auth.currentUser.email !== "admin@promoh.com") {
-        try {
-          await auth.signOut();
-        } catch {}
-      }
-
-      await signInWithEmailAndPassword(auth, "admin@promoh.com", "Promoh@090021");
-    } catch (err: any) {
-      console.warn("ensureAdminAuth auto-login error:", err);
-    } finally {
-      adminAuthInFlight = null;
-    }
-  })();
-
-  return adminAuthInFlight;
+  if (typeof window !== "undefined") {
+    window.location.href = "/admin/login";
+  }
 }
 
 /**
@@ -181,7 +159,7 @@ function triggerAdminAlert(title: string, message: string) {
     let flashes = 0;
     const originalTitle = document.title;
     const interval = setInterval(() => {
-      document.title = flashes % 2 === 0 ? `🔔 ${title}` : originalTitle;
+      document.title = flashes % 2 === 0 ? `ðŸ”” ${title}` : originalTitle;
       flashes++;
       if (flashes > 10) {
         clearInterval(interval);
@@ -263,6 +241,13 @@ function AdminDashboardContent() {
   const [revenueResetAt, setRevenueResetAt] = useState<number>(0);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [resettingRevenue, setResettingRevenue] = useState(false);
+
+  // Database purge controls
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [purgePassword, setPurgePassword] = useState("");
+  const [showPurgePw, setShowPurgePw] = useState(false);
+  const [purgeError, setPurgeError] = useState("");
+  const [purging, setPurging] = useState(false);
 
   // Emergency Maintenance Mode
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -357,17 +342,17 @@ function AdminDashboardContent() {
       if (Notification.permission === "default") {
         const perm = await Notification.requestPermission();
         if (perm === "granted") {
-          showMsg("🔔 Audio & desktop notifications enabled!");
+          showMsg("ðŸ”” Audio & desktop notifications enabled!");
           new Notification("Promoh Admin Signals Active", {
             body: "You will receive instant chime & desktop alerts when customers or providers sign up.",
             icon: "/logo.png",
           });
         }
       } else if (Notification.permission === "granted") {
-        showMsg("🔔 Chime tested! Sound and desktop alerts are active.");
+        showMsg("ðŸ”” Chime tested! Sound and desktop alerts are active.");
       }
     } else {
-      showMsg("🔔 Chime tested! Audio alerts are active.");
+      showMsg("ðŸ”” Chime tested! Audio alerts are active.");
     }
     setAlertSoundEnabled(true);
   };
@@ -381,29 +366,15 @@ function AdminDashboardContent() {
       setFirestoreError(null);
       setIsOnline(true);
       setReconnectCount((c) => c + 1);
-      showMsg("✅ Real-time data feed restored!");
+      showMsg("âœ… Real-time data feed restored!");
     } catch (e: any) {
       setFirestoreError(e?.message || "Failed to re-authenticate as admin.");
-      showMsg("❌ Reconnect failed. Please reload page.");
+      showMsg("âŒ Reconnect failed. Please reload page.");
     } finally {
       setRetryingSync(false);
     }
   };
 
-  // Auto-heal admin authentication if someone logged out or switched accounts in another tab
-  useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser || currentUser.email !== "admin@promoh.com") {
-        try {
-          await ensureAdminAuth();
-          setReconnectCount((c) => c + 1);
-        } catch (e) {
-          console.warn("Auto admin auth recovery failed:", e);
-        }
-      }
-    });
-    return () => unsubAuth();
-  }, []);
 
   // Real-time listeners
   useEffect(() => {
@@ -452,11 +423,11 @@ function AdminDashboardContent() {
                     data.email ||
                     "New Customer";
                   triggerAdminAlert(
-                    "🙋 New Customer Registered!",
+                    "ðŸ™‹ New Customer Registered!",
                     `${customerName} just created an account (${data.email || ""})`
                   );
                   pushToast(
-                    `🙋 New Customer Registered: ${customerName} (${data.email || ""})`,
+                    `ðŸ™‹ New Customer Registered: ${customerName} (${data.email || ""})`,
                     "info"
                   );
                 }
@@ -503,11 +474,11 @@ function AdminDashboardContent() {
                   "New Provider";
                 const category = data.servicesOffered || "General";
                 triggerAdminAlert(
-                  "🏢 New Provider Application!",
-                  `${providerName} applied for ${category} — Pending Verification`
+                  "ðŸ¢ New Provider Application!",
+                  `${providerName} applied for ${category} â€” Pending Verification`
                 );
                 pushToast(
-                  `🏢 New Provider Application: ${providerName} (${category}) — Pending Review`,
+                  `ðŸ¢ New Provider Application: ${providerName} (${category}) â€” Pending Review`,
                   "warning"
                 );
               }
@@ -552,7 +523,7 @@ function AdminDashboardContent() {
 
           // Toast on new booking
           if (prevBookingCount.current !== null && bookings.length > prevBookingCount.current) {
-            pushToast(`📅 New booking created on platform!`, "success");
+            pushToast(`ðŸ“… New booking created on platform!`, "success");
           }
           prevBookingCount.current = bookings.length;
 
@@ -718,7 +689,7 @@ function AdminDashboardContent() {
   const toggleMaintenanceMode = async () => {
     const newState = !maintenanceMode;
     const confirmPrompt = newState
-      ? "🚨 Warning: Are you sure you want to ACTIVATE Maintenance Mode? Customers visiting the site will see a maintenance notice."
+      ? "ðŸš¨ Warning: Are you sure you want to ACTIVATE Maintenance Mode? Customers visiting the site will see a maintenance notice."
       : "Are you sure you want to DEACTIVATE Maintenance Mode and restore normal platform operations?";
     if (!confirm(confirmPrompt)) return;
 
@@ -740,7 +711,7 @@ function AdminDashboardContent() {
         newState ? "Activated Emergency Maintenance Mode" : "Deactivated Maintenance Mode (Platform Operational)",
         { type: "settings", name: "operations.maintenanceMode" }
       );
-      showMsg(newState ? "🚨 Maintenance mode is now ACTIVE." : "✅ Platform restored to Operational.");
+      showMsg(newState ? "ðŸš¨ Maintenance mode is now ACTIVE." : "âœ… Platform restored to Operational.");
     } catch (e) {
       console.error("Error toggling maintenance mode:", e);
       showMsg("Failed to update maintenance mode.");
@@ -774,14 +745,14 @@ function AdminDashboardContent() {
       }
       try {
         await updateDoc(doc(db, "platform_settings", "homepage"), updates);
-        showMsg("✅ Settings saved and live on homepage!");
+        showMsg("âœ… Settings saved and live on homepage!");
       } catch {
         await setDoc(doc(db, "platform_settings", "homepage"), updates, { merge: true });
-        showMsg("✅ Settings saved and live on homepage!");
+        showMsg("âœ… Settings saved and live on homepage!");
       }
     } catch (e: any) {
       console.error("updateSettings error:", e);
-      showMsg(`❌ Save failed: ${e?.message || "Permission denied. Please stay logged in."}`);
+      showMsg(`âŒ Save failed: ${e?.message || "Permission denied. Please stay logged in."}`);
     }
   };
 
@@ -807,7 +778,7 @@ function AdminDashboardContent() {
         { type: "settings", name: "revenue_controls" }
       );
 
-      showMsg("✅ Today's revenue has been reset to $0.00");
+      showMsg("âœ… Today's revenue has been reset to $0.00");
       setShowResetConfirmModal(false);
     } catch (err: any) {
       console.error("Failed to reset today revenue:", err);
@@ -836,12 +807,134 @@ function AdminDashboardContent() {
         { type: "settings", name: "revenue_controls" }
       );
 
-      showMsg("✅ Restored full-day revenue calculation.");
+      showMsg("âœ… Restored full-day revenue calculation.");
     } catch (err: any) {
       console.error("Failed to restore today revenue:", err);
       showMsg(`Error restoring revenue: ${err?.message || "Permission denied"}`);
     } finally {
       setResettingRevenue(false);
+    }
+  };
+
+  // Permanently purge all providers, customers, and associated records
+  const handlePurgeAllUsers = async () => {
+    if (!purgePassword.trim()) {
+      setPurgeError("Please enter your admin password.");
+      return;
+    }
+
+    setPurging(true);
+    setPurgeError("");
+
+    try {
+      // 1. Verify password & run server-side purge via API
+      const res = await fetch("/api/admin/purge-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: purgePassword }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        setPurgeError(resData.error || "Incorrect admin password.");
+        setPurging(false);
+        return;
+      }
+
+      // 2. Ensure admin auth on client Firestore to ensure rules allow full delete
+      await ensureAdminAuth();
+
+      // 3. Purge Firestore collections on client to ensure immediate real-time sync
+      const collectionsToPurge = [
+        "providers",
+        "bookings",
+        "reviews",
+        "reports",
+        "disputes",
+        "notifications",
+        "chats",
+        "adminChats",
+        "digital_requests",
+        "payouts",
+      ];
+
+      for (const colName of collectionsToPurge) {
+        try {
+          const snap = await getDocs(collection(db, colName));
+          if (!snap.empty) {
+            let batch = writeBatch(db);
+            let bCount = 0;
+            for (const d of snap.docs) {
+              batch.delete(d.ref);
+              bCount++;
+              if (bCount >= 400) {
+                await batch.commit();
+                batch = writeBatch(db);
+                bCount = 0;
+              }
+            }
+            if (bCount > 0) {
+              await batch.commit();
+            }
+          }
+        } catch (colErr) {
+          console.warn(`Purge warning on ${colName}:`, colErr);
+        }
+      }
+
+      // 4. Purge users collection (excluding admin)
+      try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        if (!usersSnap.empty) {
+          let batch = writeBatch(db);
+          let bCount = 0;
+          for (const d of usersSnap.docs) {
+            const data = d.data();
+            if (
+              data.role !== "admin" &&
+              data.email !== "admin@promoh.com" &&
+              data.email !== "superadmin@promoh.com"
+            ) {
+              batch.delete(d.ref);
+              bCount++;
+              if (bCount >= 400) {
+                await batch.commit();
+                batch = writeBatch(db);
+                bCount = 0;
+              }
+            }
+          }
+          if (bCount > 0) {
+            await batch.commit();
+          }
+        }
+      } catch (usersErr) {
+        console.warn("Purge warning on users:", usersErr);
+      }
+
+      // 5. Log admin audit
+      await logAdminAction(
+        "ALL_USERS_PURGED",
+        `Permanently deleted all providers and customers (${allProviders.length} providers, ${allCustomers.length} customers) along with all associated bookings, chats, and records.`,
+        { id: "purge-all", name: "All Users Purged", type: "customer" }
+      ).catch(() => {});
+
+      // 6. Update local state
+      setAllProviders([]);
+      setAllCustomers([]);
+      setAllBookings([]);
+      setAllReports([]);
+
+      // 7. Close modal and show notification
+      setShowPurgeModal(false);
+      setPurgePassword("");
+      pushToast("ðŸ’¥ All providers and customers have been completely deleted.", "warning");
+      showMsg("âœ… Successfully deleted every provider and customer!");
+    } catch (err: any) {
+      console.error("Purge error:", err);
+      setPurgeError(err.message || "An error occurred while deleting data.");
+    } finally {
+      setPurging(false);
     }
   };
 
@@ -864,13 +957,23 @@ function AdminDashboardContent() {
         createdAt: serverTimestamp(),
       });
 
+      // Real-time public social proof event
+      const prov = allProviders.find((p: any) => p.id === id);
+      addDoc(collection(db, "public_activities"), {
+        type: "verified",
+        name: prov?.businessName || (prov ? `${prov.firstName} ${prov.lastName?.[0] || ""}.` : "A new pro"),
+        city: prov?.location?.split(",")[0] || "",
+        service: prov?.servicesOffered?.split(",")[0] || "Professional Services",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
+
       await logAdminAction(
         "PROVIDER_APPROVED",
         `Approved provider application and verified credentials for ID: ${id}`,
         { id, type: "provider" }
       );
 
-      showMsg("✅ Provider approved and verified!");
+      showMsg("âœ… Provider approved and verified!");
     } catch (e: any) {
       console.error("approveProvider error:", e?.code, e?.message, e);
       showMsg(`Error approving provider: ${e?.code || e?.message || "Unknown error"}`);
@@ -913,7 +1016,7 @@ function AdminDashboardContent() {
     try {
       await ensureAdminAuth();
       await updateDoc(doc(db, "providers", id), { isFeatured: !current });
-      showMsg(current ? "Removed from homepage." : "⭐ Featured on homepage!");
+      showMsg(current ? "Removed from homepage." : "â­ Featured on homepage!");
     } catch (e) {
       showMsg("Error updating featured status.");
     } finally {
@@ -1522,7 +1625,7 @@ function AdminDashboardContent() {
                   {firestoreError.includes("API has not been used") || firestoreError.includes("permission-denied") ? (
                     <>
                       Cloud Firestore needs to be enabled or security rules published in Firebase Console.
-                      Visit <strong>Firebase Console → Build → Firestore Database</strong> to ensure the database is created and security rules allow admin access.
+                      Visit <strong>Firebase Console â†’ Build â†’ Firestore Database</strong> to ensure the database is created and security rules allow admin access.
                     </>
                   ) : (
                     firestoreError
@@ -1888,7 +1991,7 @@ function AdminDashboardContent() {
                               : "New Booking Created"}
                           </p>
                           <span className="text-[11px] text-secondary-400">
-                            {act.time ? fmtDate(act.time) : "—"}
+                            {act.time ? fmtDate(act.time) : "â€”"}
                           </span>
                         </div>
                         <p className="text-secondary-600 mt-0.5 truncate">
@@ -2189,7 +2292,7 @@ function AdminDashboardContent() {
                           <span className="text-base font-extrabold text-secondary-900 block">
                             {formatCurrency(Number(b.amount !== undefined ? b.amount : b.estimatedRate || 0), b.currency || "USD")}
                           </span>
-                          <span className="text-[10px] text-secondary-400">{b.createdAt ? fmtDate(b.createdAt) : "—"}</span>
+                          <span className="text-[10px] text-secondary-400">{b.createdAt ? fmtDate(b.createdAt) : "â€”"}</span>
                         </div>
                         <Button size="sm" variant="outline" className="h-7 text-xs px-2.5" onClick={() => setSelectedBookingDetails(b)}>
                           Inspect
@@ -2222,6 +2325,19 @@ function AdminDashboardContent() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Delete All Providers and Customers */}
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => {
+                    setPurgeError("");
+                    setPurgePassword("");
+                    setShowPurgeModal(true);
+                  }}
+                  className="h-9 text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer shadow-xs gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete All Providers & Customers
+                </Button>
                 {/* Export CSV */}
                 <Button
                   size="sm"
@@ -2438,6 +2554,19 @@ function AdminDashboardContent() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Delete All Providers and Customers */}
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => {
+                    setPurgeError("");
+                    setPurgePassword("");
+                    setShowPurgeModal(true);
+                  }}
+                  className="h-9 text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer shadow-xs gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete All Providers & Customers
+                </Button>
                 {/* Export CSV */}
                 <Button
                   size="sm"
@@ -2523,14 +2652,14 @@ function AdminDashboardContent() {
                           )}
                         </div>
                         <div className="text-secondary-500 truncate">
-                          {c.email} {c.phone && `· ${c.phone}`} {c.country && `· ${c.country}`}
+                          {c.email} {c.phone && `Â· ${c.phone}`} {c.country && `Â· ${c.country}`}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0 w-full sm:w-auto mt-2 sm:mt-0 justify-start sm:justify-end">
                       <span className="text-[11px] text-secondary-400 hidden sm:block">
-                        {c.createdAt ? fmtDate(c.createdAt) : "—"}
+                        {c.createdAt ? fmtDate(c.createdAt) : "â€”"}
                       </span>
 
                       {/* Inspect */}
@@ -2647,7 +2776,7 @@ function AdminDashboardContent() {
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] text-secondary-400">{r.createdAt ? fmtDate(r.createdAt) : "—"}</span>
+                      <span className="text-[11px] text-secondary-400">{r.createdAt ? fmtDate(r.createdAt) : "â€”"}</span>
                     </div>
 
                     <div className="space-y-1.5 text-secondary-700 pl-6">
@@ -2697,7 +2826,15 @@ function AdminDashboardContent() {
       {activeTab === "promocodes" && <AdminPromoCodes />}
       {activeTab === "reviews" && <AdminReviewModeration />}
       {activeTab === "audit" && <AdminAuditLogs />}
-      {activeTab === "operations" && <AdminOperationalSettings />}
+      {activeTab === "operations" && (
+        <AdminOperationalSettings
+          onTriggerPurgeUsers={() => {
+            setPurgeError("");
+            setPurgePassword("");
+            setShowPurgeModal(true);
+          }}
+        />
+      )}
 
       {/* 7. MANAGE CATEGORIES TAB */}
       {activeTab === "categories" && (
@@ -2754,7 +2891,7 @@ function AdminDashboardContent() {
                       <ExternalLink className="w-3 h-3 text-secondary-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </div>
                     <div className="text-[11px] text-secondary-400 font-mono truncate">
-                      q={cat.slug || cat.name} {cat.hidden && "· (Hidden)"}
+                      q={cat.slug || cat.name} {cat.hidden && "Â· (Hidden)"}
                     </div>
                   </Link>
 
@@ -2855,7 +2992,7 @@ function AdminDashboardContent() {
                   Announcement Message
                 </label>
                 <Input
-                  placeholder="e.g. 🎉 Welcome to Promoh! Get $20 off your first service booking today with code PROMO20."
+                  placeholder="e.g. ðŸŽ‰ Welcome to Promoh! Get $20 off your first service booking today with code PROMO20."
                   value={announcementMsg}
                   onChange={(e) => setAnnouncementMsg(e.target.value)}
                   className="h-10 text-xs sm:text-sm"
@@ -3308,7 +3445,7 @@ function AdminDashboardContent() {
               {selectedBookingDetails.rejectionReason && (
                 <div className="p-2.5 bg-rose-50 text-rose-800 rounded-lg border border-rose-200">
                   <strong>Decline Reason:</strong> {selectedBookingDetails.rejectionReason}
-                  {selectedBookingDetails.rejectionNote && ` — "${selectedBookingDetails.rejectionNote}"`}
+                  {selectedBookingDetails.rejectionNote && ` â€” "${selectedBookingDetails.rejectionNote}"`}
                 </div>
               )}
 
@@ -3341,11 +3478,11 @@ function AdminDashboardContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Phone</span>
-                  <span className="font-semibold">{inspectingCustomer.phone || "—"}</span>
+                  <span className="font-semibold">{inspectingCustomer.phone || "â€”"}</span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Country</span>
-                  <span className="font-semibold">{inspectingCustomer.country || "—"}</span>
+                  <span className="font-semibold">{inspectingCustomer.country || "â€”"}</span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Account Status</span>
@@ -3361,7 +3498,7 @@ function AdminDashboardContent() {
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Joined</span>
-                  <span className="font-semibold">{inspectingCustomer.createdAt ? fmtDate(inspectingCustomer.createdAt) : "—"}</span>
+                  <span className="font-semibold">{inspectingCustomer.createdAt ? fmtDate(inspectingCustomer.createdAt) : "â€”"}</span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Total Bookings</span>
@@ -3420,7 +3557,7 @@ function AdminDashboardContent() {
                 <h3 className="font-bold text-white text-base">
                   {inspectingProvider.businessName || `${inspectingProvider.firstName} ${inspectingProvider.lastName}`}
                 </h3>
-                <p className="text-indigo-100 text-xs">{inspectingProvider.email} · {inspectingProvider.servicesOffered || "General"}</p>
+                <p className="text-indigo-100 text-xs">{inspectingProvider.email} Â· {inspectingProvider.servicesOffered || "General"}</p>
               </div>
               <button onClick={() => setInspectingProvider(null)} className="text-white/70 hover:text-white">
                 <X className="w-5 h-5" />
@@ -3443,22 +3580,22 @@ function AdminDashboardContent() {
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Verified ID</span>
                   <span className={`font-bold ${inspectingProvider.isVerified ? "text-green-600" : "text-secondary-400"}`}>
-                    {inspectingProvider.isVerified ? "Verified ✓" : "Unverified"}
+                    {inspectingProvider.isVerified ? "Verified âœ“" : "Unverified"}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Featured</span>
                   <span className={`font-bold ${inspectingProvider.isFeatured ? "text-amber-600" : "text-secondary-400"}`}>
-                    {inspectingProvider.isFeatured ? "On Homepage ⭐" : "Not Featured"}
+                    {inspectingProvider.isFeatured ? "On Homepage â­" : "Not Featured"}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Location</span>
-                  <span className="font-semibold">{inspectingProvider.location || "—"}</span>
+                  <span className="font-semibold">{inspectingProvider.location || "â€”"}</span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-secondary-400 block mb-1">Joined</span>
-                  <span className="font-semibold">{inspectingProvider.createdAt ? fmtDate(inspectingProvider.createdAt) : "—"}</span>
+                  <span className="font-semibold">{inspectingProvider.createdAt ? fmtDate(inspectingProvider.createdAt) : "â€”"}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -3561,6 +3698,133 @@ function AdminDashboardContent() {
         </div>
       )}
 
+      {/* Permanently Purge All Providers and Customers Modal */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-rose-200 overflow-hidden p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                    Irreversible Action
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-secondary-900 mt-1">
+                  Delete Every Provider & Customer?
+                </h3>
+                <p className="text-xs text-secondary-600 mt-1 leading-relaxed">
+                  You are about to permanently purge the entire user database.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!purging) {
+                    setShowPurgeModal(false);
+                    setPurgePassword("");
+                    setPurgeError("");
+                  }
+                }}
+                disabled={purging}
+                className="text-secondary-400 hover:text-secondary-700 transition-colors p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Warning Box */}
+            <div className="bg-rose-50 border border-rose-200/90 rounded-xl p-4 text-xs text-rose-900 space-y-2">
+              <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                CRITICAL WARNING: COMPLETE DATA DELETION
+              </div>
+              <p className="text-[11px] text-rose-800 leading-relaxed">
+                This action CANNOT be undone. Once confirmed, the following data will be permanently erased:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-rose-800/90 text-[11px] pl-1 font-medium">
+                <li>All <strong>{allProviders.length} Providers</strong> and their profiles, ratings, verification, and portfolios</li>
+                <li>All <strong>{allCustomers.length} Customers</strong> and their profiles and favorites</li>
+                <li>All associated <strong>Bookings ({allBookings.length})</strong>, Reviews, Chats, Disputes, and Notifications</li>
+                <li>All matching Authentication login accounts</li>
+                <li className="text-emerald-800 font-bold">Your Administrator account will NOT be affected.</li>
+              </ul>
+            </div>
+
+            {/* Password Confirmation */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-secondary-800 block">
+                Enter Your Admin Password to Confirm:
+              </label>
+              <div className="relative">
+                <Input
+                  type={showPurgePw ? "text" : "password"}
+                  value={purgePassword}
+                  onChange={(e) => {
+                    setPurgePassword(e.target.value);
+                    if (purgeError) setPurgeError("");
+                  }}
+                  disabled={purging}
+                  placeholder="Enter master admin password"
+                  className="pr-10 text-xs bg-white border-secondary-300 focus-visible:ring-rose-500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !purging) {
+                      e.preventDefault();
+                      handlePurgeAllUsers();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPurgePw(!showPurgePw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 cursor-pointer"
+                >
+                  {showPurgePw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {purgeError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>{purgeError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-secondary-100">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowPurgeModal(false);
+                  setPurgePassword("");
+                  setPurgeError("");
+                }}
+                disabled={purging}
+                className="text-xs font-semibold px-4 cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                onClick={handlePurgeAllUsers}
+                isLoading={purging}
+                disabled={!purgePassword.trim() || purging}
+                className="text-xs font-bold px-4 gap-1.5 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {purging ? "Purging Entire Database..." : "Permanently Delete All"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Universal Command Palette */}
       <AdminCommandPalette
         isOpen={isCommandPaletteOpen}
@@ -3584,3 +3848,4 @@ export default function AdminDashboardPage() {
     </Suspense>
   );
 }
+

@@ -14,6 +14,7 @@ import { Heart, MapPin, Star, ShieldCheck, Search, Award } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { ProviderGridSkeleton } from "@/components/ui/ProviderCardSkeleton";
 
 interface SavedProvider {
   id: string;
@@ -105,9 +106,7 @@ export default function FavoritesPage() {
         </div>
 
         {fetching ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1,2,3].map(i => <div key={i} className="h-72 rounded-2xl bg-secondary-100 animate-pulse" />)}
-          </div>
+          <ProviderGridSkeleton count={3} />
         ) : providers.length === 0 ? (
           <div className="text-center py-24 border-2 border-dashed border-secondary-200 rounded-2xl bg-white">
             <Heart className="w-16 h-16 text-secondary-200 mx-auto mb-4" />

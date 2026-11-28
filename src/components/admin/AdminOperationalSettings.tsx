@@ -24,10 +24,15 @@ import {
   ToggleRight,
   Mail,
   Phone,
+  Trash2,
 } from "lucide-react";
 import { logAdminAction } from "@/lib/adminLogger";
 
-export default function AdminOperationalSettings() {
+interface AdminOperationalSettingsProps {
+  onTriggerPurgeUsers?: () => void;
+}
+
+export default function AdminOperationalSettings({ onTriggerPurgeUsers }: AdminOperationalSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -273,6 +278,37 @@ export default function AdminOperationalSettings() {
           </Button>
         </div>
       </form>
+
+      {/* Danger Zone: Purge All Users & Profiles */}
+      {onTriggerPurgeUsers && (
+        <Card className="border-rose-300 shadow-sm bg-rose-50/40 overflow-hidden">
+          <CardHeader className="bg-rose-100/50 border-b border-rose-200">
+            <CardTitle className="text-base flex items-center gap-2 text-rose-950 font-bold">
+              <AlertTriangle className="w-5 h-5 text-rose-600" />
+              Danger Zone: Purge Platform Directory
+            </CardTitle>
+            <CardDescription className="text-xs text-rose-700">
+              Permanently delete all registered provider and customer records, bookings, and associated data. Requires admin master password.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-secondary-900">Delete Every Provider & Customer</p>
+              <p className="text-[11px] text-secondary-500 mt-1 max-w-lg leading-relaxed">
+                This will trigger a full database wipe of all customer accounts, provider portfolios, bookings, and chats while preserving the administrator account.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={onTriggerPurgeUsers}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shrink-0 gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete All Providers & Customers
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

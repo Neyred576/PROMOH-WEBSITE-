@@ -6,6 +6,8 @@ import AuthProviderWrapper from "@/components/providers/AuthProviderWrapper";
 import RealtimeNotificationListener from "@/components/layout/RealtimeNotificationListener";
 import BackToTop from "@/components/ui/BackToTop";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import LiveActivityTicker from "@/components/layout/LiveActivityTicker";
+import LiveSupportWidget from "@/components/support/LiveSupportWidget";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -56,11 +58,13 @@ export default function RootLayout({
       lang="en"
       className={`${outfit.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans text-foreground bg-background">
+      <body className="min-h-full flex flex-col font-sans text-foreground bg-background pb-16 md:pb-0">
         <GlobalAnnouncementWrapper />
         <AuthProviderWrapper>
           <RealtimeNotificationListener />
           {children}
+          <LiveActivityTicker />
+          <LiveSupportWidget />
           <BackToTop />
           <MobileBottomNav />
         </AuthProviderWrapper>

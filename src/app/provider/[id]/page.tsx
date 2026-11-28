@@ -21,6 +21,7 @@ import Navbar from "@/components/layout/Navbar";
 import ReportModal from "@/components/ui/ReportModal";
 import BeforeAfterSlider, { BeforeAfterProject } from "@/components/ui/BeforeAfterSlider";
 import { ProviderBadgesStrip } from "@/components/provider/ProviderBadges";
+import { ProviderPresenceBadge } from "@/components/provider/ProviderPresenceBadge";
 
 interface ServiceCard {
   id: string;
@@ -53,6 +54,8 @@ interface ProviderData {
   trustScore?: number;
   currency?: string;
   viewCount?: number;
+  isOnline?: boolean;
+  lastSeen?: any;
 }
 
 interface Review {
@@ -459,6 +462,7 @@ export default function ProviderProfilePage() {
                           <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Verified
                         </span>
                       )}
+                      <ProviderPresenceBadge isOnline={provider.isOnline} lastSeen={provider.lastSeen} />
                     </div>
                     <p className="text-secondary-600 mt-1 text-sm sm:text-base">{services[0] || "Professional Services"}</p>
                     <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-3 flex-wrap text-xs sm:text-sm">

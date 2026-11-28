@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { db } from "@/lib/firebase/client";
-import { collection, addDoc, updateDoc, doc, getDoc, runTransaction } from "firebase/firestore";
+import { collection, addDoc, updateDoc, doc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Star, X } from "lucide-react";
@@ -46,6 +46,15 @@ export default function ReviewModal({ bookingId, providerId, customerId, custome
         comment,
         createdAt: new Date().toISOString(),
       });
+
+      // Real-time public social proof event
+      addDoc(collection(db, "public_activities"), {
+        type: "review",
+        name: customerName ? `${customerName.split(" ")[0]} ${customerName.split(" ")[1]?.[0] || ""}.`.trim() : "A verified customer",
+        rating,
+        service: "Service",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
 
       // 2. Mark booking as reviewed
       await updateDoc(doc(db, "bookings", bookingId), { reviewed: true });

@@ -2,7 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ==========================================
+    // Security Helper Functions
+    // ==========================================
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -16,92 +18,186 @@ service cloud.firestore {
       );
     }
 
-    // Providers collection:
-    // Anyone can read (needed for public search/discovery on the site),
-    // Providers can create and update their own document; admins full access.
+    // ==========================================
+    // 1. Providers Directory (Public search, secure edits)
+    // ==========================================
     match /providers/{providerId} {
+      // Anyone can read provider profiles for discovery & booking
       allow read: if true;
+      // Providers can register their own profile
       allow create: if isAuthenticated() && request.auth.uid == providerId;
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == providerId);
+      // Providers can edit their profile, but cannot manipulate moderation fields
+      allow update: if isAdmin() || (
+        isAuthenticated() && request.auth.uid == providerId &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'status', 'isVerified', 'banned', 'isFeatured', 'rating', 'reviewCount'
+        ]))
+      );
       allow delete: if isAdmin();
     }
 
-    // Users collection:
-    // Authenticated users can read and update their own document; admins full access.
+    // ==========================================
+    // 2. Users (Role Privilege Escalation Protection)
+    // ==========================================
     match /users/{userId} {
       allow read: if isAuthenticated() || isAdmin();
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      // Users can update their profile, but CANNOT self-promote to 'admin' or unban themselves
+      allow update: if isAdmin() || (
+        isAuthenticated() && request.auth.uid == userId &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isVerified', 'banned']))
+      );
       allow delete: if isAdmin();
     }
 
-    // Bookings:
-    // Authenticated users can create and interact with bookings; admins full access.
+    // ==========================================
+    // 3. Bookings (Restricted to Customer & Provider)
+    // ==========================================
     match /bookings/{bookingId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+      allow read: if isAdmin() || (
+        isAuthenticated() && (
+          resource.data.customerId == request.auth.uid ||
+          resource.data.providerId == request.auth.uid
+        )
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.customerId == request.auth.uid
+      );
+      allow update: if isAdmin() || (
+        isAuthenticated() && (
+          resource.data.customerId == request.auth.uid ||
+          resource.data.providerId == request.auth.uid
+        )
+      );
+      allow delete: if isAdmin();
     }
 
-    // Platform settings (CMS, categories, announcements):
-    // Public read for homepage, admin write.
-    match /platform_settings/{settingId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    // ==========================================
+    // 4. Private Chats & Messages
+    // ==========================================
+    match /chats/{chatId} {
+      allow read: if isAdmin() || (
+        isAuthenticated() && request.auth.uid in resource.data.participantIds
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid in request.resource.data.participantIds
+      );
+      allow update: if isAdmin() || (
+        isAuthenticated() && request.auth.uid in resource.data.participantIds
+      );
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read, write: if isAdmin() || (
+          isAuthenticated() && (
+            request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds
+          )
+        );
+      }
     }
 
-    // Notifications:
+    // ==========================================
+    // 5. Admin Direct Support Channels
+    // ==========================================
+    match /adminChats/{userId} {
+      allow read, write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+
+      match /messages/{messageId} {
+        allow read, write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      }
+    }
+
+    // ==========================================
+    // 6. User Notifications (Private to Recipient)
+    // ==========================================
     match /notifications/{notificationId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
 
-    // Reports & Disputes:
+    // ==========================================
+    // 7. Provider Payouts Ledger
+    // ==========================================
+    match /payouts/{payoutId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.providerId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.providerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 8. Trust & Safety Reports & Disputes
+    // ==========================================
     match /reports/{reportId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
+
     match /disputes/{disputeId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
 
-    // Admin audit logs:
+    // ==========================================
+    // 9. Admin Audit Logs
+    // ==========================================
     match /admin_audit_logs/{logId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
 
-    // Reviews:
+    // ==========================================
+    // 10. Reviews & Ratings
+    // ==========================================
     match /reviews/{reviewId} {
       allow read: if true;
-      allow write: if isAuthenticated() || isAdmin();
+      allow create: if isAuthenticated() && (
+        request.resource.data.customerId == request.auth.uid
+      );
+      allow update, delete: if isAdmin() || (
+        isAuthenticated() && resource.data.customerId == request.auth.uid
+      );
     }
 
-    // Promo codes:
+    // ==========================================
+    // 11. Digital Requests / Online Jobs
+    // ==========================================
+    match /digital_requests/{requestId} {
+      allow read: if true;
+      // App writes userId (not customerId) — allow any authenticated user to create
+      allow create: if isAuthenticated();
+      // Owner can update/delete (via userId field); admin always can
+      allow update, delete: if isAdmin() || (
+        isAuthenticated() && resource.data.userId == request.auth.uid
+      );
+    }
+
+    // ==========================================
+    // 12. Promo Codes & Operational Settings
+    // ==========================================
     match /promocodes/{codeId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Payouts:
-    match /payouts/{payoutId} {
-      allow read, write: if isAuthenticated() || isAdmin();
+    match /platform_settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Direct chats between customers and providers
-    match /chats/{chatId} {
-      allow read, write: if isAuthenticated() || isAdmin();
-
-      match /messages/{messageId} {
-        allow read, write: if isAuthenticated() || isAdmin();
-      }
+    // ==========================================
+    // 13. Public Real-Time Activity Feed
+    // ==========================================
+    match /public_activities/{activityId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
 
-    // Admin direct support channels
-    match /adminChats/{userId} {
-      allow read, write: if isAuthenticated() || isAdmin();
-
-      match /messages/{messageId} {
-        allow read, write: if isAuthenticated() || isAdmin();
-      }
-    }
-
-    // Admin master override for any unlisted collection
+    // ==========================================
+    // Master Admin Override
+    // ==========================================
     match /{document=**} {
       allow read, write: if isAdmin();
     }
