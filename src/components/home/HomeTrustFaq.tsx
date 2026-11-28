@@ -21,16 +21,16 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 // ── 1. POPULAR CITIES BAR ──────────────────────────────────────────────────
 const DEFAULT_POPULAR_LOCATIONS = [
-  "New York",
-  "London",
-  "Toronto",
-  "Sydney",
   "Nairobi",
-  "Los Angeles",
-  "Dubai",
-  "Johannesburg",
-  "Miami",
-  "Berlin",
+  "Mombasa",
+  "Kisumu",
+  "Nakuru",
+  "Eldoret",
+  "Thika",
+  "Malindi",
+  "Kitale",
+  "Garissa",
+  "Nyeri",
 ];
 
 export function PopularCitiesBar() {

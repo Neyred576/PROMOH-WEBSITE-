@@ -13,8 +13,8 @@ import {
 } from "@/components/home/HomeTrustFaq";
 
 export const metadata = {
-  title: "Promoh | Find Trusted Professionals Anywhere",
-  description: "Find. Compare. Chat. Book. Done. The world's most trusted marketplace for hiring local service experts.",
+  title: "Promoh | Find Trusted Professionals in Kenya",
+  description: "Find. Compare. Chat. Book. Done. Kenya's most trusted marketplace for hiring local service experts.",
 };
 
 export default function Home() {
@@ -33,7 +33,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 relative z-10 text-center flex flex-col items-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-md text-primary-700 text-sm font-semibold mb-6 border border-primary-100 shadow-sm animate-fade-in-up">
             <ShieldCheck className="w-4 h-4 text-primary-600" />
-            <span>100% Verified Professionals Worldwide</span>
+            <span>100% Verified Professionals Across Kenya</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-extrabold tracking-tight text-secondary-900 max-w-4xl leading-tight animate-fade-in-up" style={{ animationDelay: '100ms' }}>
@@ -42,7 +42,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-4 sm:mt-6 text-base sm:text-xl text-secondary-600 max-w-2xl animate-fade-in-up px-2 sm:px-0" style={{ animationDelay: '200ms' }}>
-            Find. Compare. Chat. Book. Done. The world's most trusted marketplace for hiring local service experts.
+            Find. Compare. Chat. Book. Done. Kenya's most trusted marketplace for hiring local service experts.
           </p>
 
           {/* Client-side search and pills */}
@@ -149,7 +149,7 @@ export default function Home() {
               <Image src="/logo.png" alt="Promoh Logo" width={40} height={40} className="w-auto h-8 object-contain" />
               <span className="text-2xl font-bold text-secondary-900 tracking-tight">Promoh</span>
             </div>
-            <p className="mb-6 text-sm leading-relaxed text-secondary-500">Find. Compare. Chat. Book. Done. The world's trusted marketplace for service professionals.</p>
+            <p className="mb-6 text-sm leading-relaxed text-secondary-500">Find. Compare. Chat. Book. Done. Kenya's trusted marketplace for service professionals.</p>
             <a href="mailto:promoh321@gmail.com?subject=Support%20Request%20-%20Promoh" id="contact-support-btn"
               className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold hover:from-primary-700 hover:to-primary-800 transition-all shadow-md text-sm w-full justify-center group">
               <Mail className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
@@ -176,7 +176,6 @@ export default function Home() {
             <ul className="space-y-3 text-sm font-medium">
               <li><Link href="/terms" className="hover:text-primary-600 transition-colors">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-primary-600 transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/admin/login" className="hover:text-primary-600 transition-colors">Admin Portal</Link></li>
             </ul>
           </div>
         </div>
